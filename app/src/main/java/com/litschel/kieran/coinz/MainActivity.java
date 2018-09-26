@@ -13,6 +13,7 @@ import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
@@ -33,6 +34,16 @@ public class MainActivity extends AppCompatActivity {
 
         mapView = (MapView) findViewById(R.id.mapView);
         mapView.onCreate(savedInstanceState);
+
+        mapView.getMapAsync(mapboxMap -> {
+            LatLngBounds PLAY_BOUNDS = new LatLngBounds.Builder()
+                    .include(new LatLng(55.946233, -3.192473))
+                    .include(new LatLng(55.946233, -3.184319))
+                    .include(new LatLng(55.942617, -3.192473))
+                    .include(new LatLng(55.942617, -3.184319))
+                    .build();
+            mapboxMap.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
+        });
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -103,17 +114,14 @@ public class MainActivity extends AppCompatActivity {
             case R.id.action_settings:
                 return true;
             case R.id.action_reset_view:
-                mapView.getMapAsync(new OnMapReadyCallback() {
-                    @Override
-                    public void onMapReady(MapboxMap mapboxMap) {
-                        CameraPosition position = new CameraPosition.Builder()
-                                .target(new LatLng(55.944425, -3.188396))
-                                .zoom(15)
-                                .bearing(0)
-                                .build();
-                        mapboxMap.animateCamera(CameraUpdateFactory
-                                .newCameraPosition(position), 1000);
-                    }
+                mapView.getMapAsync(mapboxMap -> {
+                    CameraPosition position = new CameraPosition.Builder()
+                            .target(new LatLng(55.944425, -3.188396))
+                            .zoom(15)
+                            .bearing(0)
+                            .build();
+                    mapboxMap.animateCamera(CameraUpdateFactory
+                            .newCameraPosition(position), 1000);
                 });
                 return true;
             default:
