@@ -109,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
                         CameraPosition position = new CameraPosition.Builder()
                                 .target(new LatLng(55.944425, -3.188396))
                                 .zoom(15)
+                                .bearing(0)
                                 .build();
                         mapboxMap.animateCamera(CameraUpdateFactory
                                 .newCameraPosition(position), 1000);
