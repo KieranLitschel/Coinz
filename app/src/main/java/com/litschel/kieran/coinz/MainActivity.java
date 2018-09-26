@@ -15,10 +15,30 @@ import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
+import com.mapbox.mapboxsdk.maps.MapboxMap;
 
-public class MainActivity extends AppCompatActivity {
+import android.location.Location;
+
+import android.support.annotation.NonNull;
+
+import com.mapbox.mapboxsdk.plugins.locationlayer.LocationLayerPlugin;
+import com.mapbox.mapboxsdk.plugins.locationlayer.modes.RenderMode;
+import com.mapbox.android.core.location.LocationEngine;
+import com.mapbox.android.core.location.LocationEngineListener;
+import com.mapbox.android.core.location.LocationEnginePriority;
+import com.mapbox.android.core.location.LocationEngineProvider;
+import com.mapbox.android.core.permissions.PermissionsListener;
+import com.mapbox.android.core.permissions.PermissionsManager;
+
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener {
 
     private MapView mapView;
+    private MapboxMap map;
+    private PermissionsManager permissionsManager;
+    private LocationLayerPlugin locationPlugin;
+    private LocationEngine locationEngine;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,13 +53,8 @@ public class MainActivity extends AppCompatActivity {
         mapView.onCreate(savedInstanceState);
 
         mapView.getMapAsync(mapboxMap -> {
-            LatLngBounds PLAY_BOUNDS = new LatLngBounds.Builder()
-                    .include(new LatLng(55.946233, -3.192473))
-                    .include(new LatLng(55.946233, -3.184319))
-                    .include(new LatLng(55.942617, -3.192473))
-                    .include(new LatLng(55.942617, -3.184319))
-                    .build();
-            mapboxMap.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
+            map = mapboxMap;
+            enableLocationPlugin();
         });
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -52,9 +67,84 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    @SuppressWarnings({"MissingPermission"})
+    private void enableLocationPlugin() {
+        // Check if permissions are enabled and if not request
+        if (PermissionsManager.areLocationPermissionsGranted(this)) {
+            // Create an instance of LOST location engine
+            initializeLocationEngine();
+
+            locationPlugin = new LocationLayerPlugin(mapView, map, locationEngine);
+            locationPlugin.setRenderMode(RenderMode.COMPASS);
+        } else {
+            permissionsManager = new PermissionsManager(this);
+            permissionsManager.requestLocationPermissions(this);
+        }
+    }
+
+    @SuppressWarnings({"MissingPermission"})
+    private void initializeLocationEngine() {
+        LocationEngineProvider locationEngineProvider = new LocationEngineProvider(this);
+        locationEngine = locationEngineProvider.obtainBestLocationEngineAvailable();
+        locationEngine.setPriority(LocationEnginePriority.HIGH_ACCURACY);
+        locationEngine.activate();
+
+        Location lastLocation = locationEngine.getLastLocation();
+        if (lastLocation == null) {
+            locationEngine.addLocationEngineListener(this);
+        }
+
+        LatLngBounds PLAY_BOUNDS = new LatLngBounds.Builder()
+                .include(new LatLng(55.946233, -3.192473))
+                .include(new LatLng(55.946233, -3.184319))
+                .include(new LatLng(55.942617, -3.192473))
+                .include(new LatLng(55.942617, -3.184319))
+                .build();
+        map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
+    }
+
     @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    @Override
+    public void onExplanationNeeded(List<String> permissionsToExplain) {
+
+    }
+
+    @Override
+    public void onPermissionResult(boolean granted) {
+        if (granted) {
+            enableLocationPlugin();
+        } else {
+            finish();
+        }
+    }
+
+    @Override
+    @SuppressWarnings({"MissingPermission"})
+    public void onConnected() {
+        locationEngine.requestLocationUpdates();
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        if (location != null) {
+            locationEngine.removeLocationEngineListener(this);
+        }
+    }
+
+    @Override
+    @SuppressWarnings({"MissingPermission"})
     protected void onStart() {
         super.onStart();
+        if (locationEngine != null) {
+            locationEngine.requestLocationUpdates();
+        }
+        if (locationPlugin != null) {
+            locationPlugin.onStart();
+        }
         mapView.onStart();
     }
 
@@ -73,6 +163,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        if (locationEngine != null) {
+            locationEngine.removeLocationUpdates();
+        }
+        if (locationPlugin != null) {
+            locationPlugin.onStop();
+        }
         mapView.onStop();
     }
 
@@ -92,6 +188,9 @@ public class MainActivity extends AppCompatActivity {
     public void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
+        if (locationEngine != null) {
+            locationEngine.deactivate();
+        }
     }
 
     @Override
@@ -111,15 +210,12 @@ public class MainActivity extends AppCompatActivity {
             case R.id.action_settings:
                 return true;
             case R.id.action_reset_view:
-                mapView.getMapAsync(mapboxMap -> {
-                    CameraPosition position = new CameraPosition.Builder()
-                            .target(new LatLng(55.944425, -3.188396))
-                            .zoom(15)
-                            .bearing(0)
-                            .build();
-                    mapboxMap.animateCamera(CameraUpdateFactory
-                            .newCameraPosition(position), 1000);
-                });
+                CameraPosition position = new CameraPosition.Builder()
+                        .target(new LatLng(55.944425, -3.188396))
+                        .zoom(15)
+                        .bearing(0)
+                        .build();
+                map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
