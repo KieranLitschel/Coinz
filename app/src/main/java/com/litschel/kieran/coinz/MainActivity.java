@@ -214,6 +214,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                         .target(new LatLng(55.944425, -3.188396))
                         .zoom(15)
                         .bearing(0)
+                        .tilt(0)
                         .build();
                 map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
                 return true;
