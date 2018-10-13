@@ -1,14 +1,25 @@
 package com.litschel.kieran.coinz;
 
+import android.Manifest;
+import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.JsonReader;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
@@ -30,6 +41,13 @@ import com.mapbox.android.core.location.LocationEngineProvider;
 import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.time.LocalDate;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener {
@@ -39,10 +57,25 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private PermissionsManager permissionsManager;
     private LocationLayerPlugin locationPlugin;
     private LocationEngine locationEngine;
+    private SharedPreferences settings;
+    private final String settingsFile = "SettingsFile";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_NETWORK_STATE},0);
+        } else {
+            System.out.println("PERMISSION ACESS_NETWORK_STATE IS GRANTED");
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET},1);
+        } else {
+            System.out.println("PERMISSION INTERNET IS GRANTED");
+        }
+
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -101,6 +134,32 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 .include(new LatLng(55.942617, -3.184319))
                 .build();
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
+
+        checkForMapUpdate();
+    }
+
+    private void checkForMapUpdate() {
+        LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
+
+        if (lastDownloadDate.isBefore(LocalDate.now())) {
+            LocalDate today = LocalDate.now();
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("map", "");
+            editor.apply();
+            String year = String.valueOf(today.getYear());
+            String month = String.valueOf(today.getMonthValue());
+            if (month.length() == 1) {
+                month = "0" + month;
+            }
+            String day = String.valueOf(today.getDayOfMonth());
+            if (day.length() == 1) {
+                day = "0" + day;
+            }
+            String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
+            new DownloadMapTask(settings).execute(url);
+        } else {
+            System.out.println("MAP IS UP TO DATE");
+        }
     }
 
     @Override
@@ -139,6 +198,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @SuppressWarnings({"MissingPermission"})
     protected void onStart() {
         super.onStart();
+        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         if (locationEngine != null) {
             locationEngine.requestLocationUpdates();
         }
@@ -220,6 +280,75 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
+        }
+    }
+}
+
+class DownloadMapTask extends AsyncTask<String, Void, String> {
+    private SharedPreferences settings;
+
+    DownloadMapTask(SharedPreferences settings) {
+        super();
+        this.settings = settings;
+    }
+
+    @Override
+    protected String doInBackground(String... urls) {
+        try {
+            return loadFileFromNetwork(urls[0]);
+        } catch (IOException e) {
+            return "FAILED";
+        }
+    }
+
+    private String loadFileFromNetwork(String urlString) throws IOException {
+        return readStream(downloadUrl(new URL(urlString)));
+    }
+
+    private InputStream downloadUrl(URL url) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setReadTimeout(10000); // milliseconds
+        conn.setConnectTimeout(15000); // milliseconds
+        conn.setRequestMethod("GET");
+        conn.setDoInput(true);
+        conn.connect();
+        return conn.getInputStream();
+    }
+
+    @NonNull
+    private String readStream(InputStream stream)
+            throws IOException {
+        // Read input from stream, build result as a string
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+        StringBuilder result = new StringBuilder();
+        String line;
+        line = reader.readLine();
+        result.append(line);
+        while((line = reader.readLine()) != null) {
+            result.append("\n");
+            result.append(line);
+        }
+        return result.toString();
+    }
+
+    @Override
+    protected void onPostExecute(String result) {
+        super.onPostExecute(result);
+        DownloadCompleteRunner.downloadMapComplete(result, settings);
+    }
+}
+
+class DownloadCompleteRunner {
+
+    static void downloadMapComplete(String result, SharedPreferences settings) {
+        if (!(result.equals("FAILED"))) {
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("map", result);
+            editor.putString("lastDownloadDate", LocalDate.now().toString());
+            editor.apply();
+            System.out.println("SUCEEDED IN DOWNLOADING MAP");
+        } else {
+            System.out.println("FAILED TO DOWNLOAD MAP");
         }
     }
 }
