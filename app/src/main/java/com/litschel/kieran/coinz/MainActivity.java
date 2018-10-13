@@ -1,7 +1,6 @@
 package com.litschel.kieran.coinz;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -13,13 +12,10 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.JsonReader;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
@@ -59,19 +55,20 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private LocationEngine locationEngine;
     private SharedPreferences settings;
     private final String settingsFile = "SettingsFile";
+    private Awake awake;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_NETWORK_STATE},0);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_NETWORK_STATE}, 0);
         } else {
             System.out.println("PERMISSION ACESS_NETWORK_STATE IS GRANTED");
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET},1);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET}, 1);
         } else {
             System.out.println("PERMISSION INTERNET IS GRANTED");
         }
@@ -136,27 +133,15 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
 
         checkForMapUpdate();
+        awake = new Awake();
+        new WaitForMidnight(settings, awake).execute();
     }
 
     private void checkForMapUpdate() {
         LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
 
         if (lastDownloadDate.isBefore(LocalDate.now())) {
-            LocalDate today = LocalDate.now();
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putString("map", "");
-            editor.apply();
-            String year = String.valueOf(today.getYear());
-            String month = String.valueOf(today.getMonthValue());
-            if (month.length() == 1) {
-                month = "0" + month;
-            }
-            String day = String.valueOf(today.getDayOfMonth());
-            if (day.length() == 1) {
-                day = "0" + day;
-            }
-            String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
-            new DownloadMapTask(settings).execute(url);
+            Methods.updateMap(settings);
         } else {
             System.out.println("MAP IS UP TO DATE");
         }
@@ -212,12 +197,23 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     protected void onResume() {
         super.onResume();
         mapView.onResume();
+        checkForMapUpdate();
+        if (awake != null) {
+            awake.wakeUp();
+            if (!awake.waitingForMidinight()) {
+                awake.setWaitingForMidnight();
+                new WaitForMidnight(settings, awake).execute();
+            }
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         mapView.onPause();
+        if (awake != null) {
+            awake.goToSleep();
+        }
     }
 
     @Override
@@ -230,6 +226,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             locationPlugin.onStop();
         }
         mapView.onStop();
+        if (awake != null) {
+            awake.goToSleep();
+        }
     }
 
     @Override
@@ -250,6 +249,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         mapView.onDestroy();
         if (locationEngine != null) {
             locationEngine.deactivate();
+        }
+        if (awake != null) {
+            awake.goToSleep();
         }
     }
 
@@ -281,6 +283,66 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+}
+
+// Detects midnight and sleeps well, but doesn't update the map for some reason
+class WaitForMidnight extends AsyncTask<Void, Void, String> {
+    private SharedPreferences settings;
+    private Awake awake;
+
+    WaitForMidnight(SharedPreferences settings, Awake awake) {
+        super();
+        this.settings = settings;
+        this.awake = awake;
+    }
+
+    @Override
+    protected String doInBackground(Void... voids) {
+        try {
+            boolean waitingForMapUpdate = false;
+            System.out.println("WAITINGFORMIDINIGHT: STARTED WAITING");
+            while (awake.isAwake()) {
+                Thread.sleep(1000);
+                String lastUpdate = settings.getString("lastDownloadDate", "");
+                if (!lastUpdate.equals("")) {
+                    if (LocalDate.parse(lastUpdate).isBefore(LocalDate.now())) {
+                        if (!waitingForMapUpdate){
+                            System.out.println("WAITINGFORMIDNIGHT: ITS MIDNIGHT, UPDATING MAP");
+                            Methods.updateMap(settings);
+                            waitingForMapUpdate = true;
+                        }
+                    } else if (waitingForMapUpdate){
+                        waitingForMapUpdate = false;
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            System.out.printf("EXCEPTION WHEN WAITINGFORMIDNIGHT, EXCEPTION IS:\n%s\n", e);
+        }
+        awake.setNotWaitingForMidnight();
+        System.out.println("WAITINGFORMIDINIGHT: STOPPED WAITING");
+        return "";
+    }
+}
+
+class Methods{
+    public static void updateMap(SharedPreferences settings) {
+        LocalDate today = LocalDate.now();
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("map", "");
+        editor.apply();
+        String year = String.valueOf(today.getYear());
+        String month = String.valueOf(today.getMonthValue());
+        if (month.length() == 1) {
+            month = "0" + month;
+        }
+        String day = String.valueOf(today.getDayOfMonth());
+        if (day.length() == 1) {
+            day = "0" + day;
+        }
+        String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
+        new DownloadMapTask(settings).execute(url);
     }
 }
 
@@ -324,7 +386,7 @@ class DownloadMapTask extends AsyncTask<String, Void, String> {
         String line;
         line = reader.readLine();
         result.append(line);
-        while((line = reader.readLine()) != null) {
+        while ((line = reader.readLine()) != null) {
             result.append("\n");
             result.append(line);
         }
@@ -350,5 +412,39 @@ class DownloadCompleteRunner {
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
         }
+    }
+}
+
+class Awake {
+    private boolean awake;
+    private boolean waiting;
+
+    Awake() {
+        awake = true;
+        waiting = true;
+    }
+
+    public void goToSleep() {
+        awake = false;
+    }
+
+    public void wakeUp() {
+        awake = true;
+    }
+
+    public boolean isAwake() {
+        return awake;
+    }
+
+    public void setNotWaitingForMidnight() {
+        waiting = false;
+    }
+
+    public void setWaitingForMidnight() {
+        waiting = true;
+    }
+
+    public boolean waitingForMidinight() {
+        return waiting;
     }
 }
