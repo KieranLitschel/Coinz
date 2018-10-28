@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.ColorInt;
 import android.support.annotation.DrawableRes;
 import android.support.design.widget.FloatingActionButton;
@@ -58,9 +59,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener {
 
@@ -71,12 +77,15 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private LocationEngine locationEngine;
     private SharedPreferences settings;
     private final String settingsFile = "SettingsFile";
-    private Awake awake;
-    private JSONArray markersJSON;
+    private boolean justStarted;
     private ArrayList<MarkerOptions> markers;
+    private Timer myTimer;
+    private Handler myTimerTaskHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        justStarted = true;
+
         super.onCreate(savedInstanceState);
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED) {
@@ -151,54 +160,60 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
 
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
-        SharedPreferences.OnSharedPreferenceChangeListener spChanged = (sharedPreferences, key) -> {
-            if (key.equals("map")) {
-                System.out.println("Detected map change");
-                String mapString = settings.getString("map", "");
-                if (!mapString.equals("")) {
-                    if (markers != null) {
-                        map.clear();
-                    }
-                    markers = new ArrayList<>();
-                    try {
-                        JSONObject mapJSON = new JSONObject(mapString);
-                        markersJSON = mapJSON.getJSONArray("features");
-                        for (int i = 0; i < markersJSON.length(); i++) {
-                            JSONObject marker = markersJSON.getJSONObject(i);
-                            JSONArray pos = marker.getJSONObject("geometry").getJSONArray("coordinates");
-                            Icon icon = drawableToIcon(this, R.drawable.marker_icon,
-                                    Color.parseColor(marker.getJSONObject("properties").getString("marker-color")));
-                            markers.add(new MarkerOptions()
-                                    .position(new LatLng(Double.parseDouble(pos.getString(1)),
-                                            Double.parseDouble(pos.getString(0))))
-                                    .title(marker.getJSONObject("properties").getString("id"))
-                                    .icon(icon));
-                        }
-                        map.addMarkers(markers);
-                        System.out.printf("Addded %s markers to the map\n", markersJSON.length());
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        };
-        settings.registerOnSharedPreferenceChangeListener(spChanged);
+
+        if (justStarted && (!settings.getString("map", "").equals(""))) {
+            updateMarkers();
+            justStarted = false;
+        }
 
         checkForMapUpdate();
-        awake = new Awake();
-        new WaitForMidnight(settings, awake).execute();
     }
 
-    // I found this method here https://stackoverflow.com/questions/37805379/mapbox-for-android-changing-color-of-a-markers-icon
-    public static Icon drawableToIcon(@NonNull Context context, @DrawableRes int id, @ColorInt int colorRes) {
-        Drawable vectorDrawable = ResourcesCompat.getDrawable(context.getResources(), id, context.getTheme());
-        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
-                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        DrawableCompat.setTint(vectorDrawable, colorRes);
-        vectorDrawable.draw(canvas);
-        return IconFactory.getInstance(context).fromBitmap(bitmap);
+    public void updateMarkers() {
+        String mapJSONString = settings.getString("map","");
+        map.clear();
+        markers = new ArrayList<>();
+        if (!mapJSONString.equals("")) {
+            try {
+                JSONObject mapJSON = new JSONObject(mapJSONString);
+                JSONArray markersJSON = mapJSON.getJSONArray("features");
+                for (int i = 0; i < markersJSON.length(); i++) {
+                    JSONObject marker = markersJSON.getJSONObject(i);
+                    JSONArray pos = marker.getJSONObject("geometry").getJSONArray("coordinates");
+                    Icon icon = Methods.drawableToIcon(this, R.drawable.marker_icon,
+                            Color.parseColor(marker.getJSONObject("properties").getString("marker-color")));
+                    markers.add(new MarkerOptions()
+                            .position(new LatLng(Double.parseDouble(pos.getString(1)),
+                                    Double.parseDouble(pos.getString(0))))
+                            .title(marker.getJSONObject("properties").getString("id"))
+                            .icon(icon));
+                }
+                map.addMarkers(markers);
+                System.out.println("ADDED NEW MARKERS TO MAP");
+                System.out.printf("Added %s markers to the map\n", markersJSON.length());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void setToUpdateAtMidnight(){
+        TimerTask mTt = new TimerTask() {
+            public void run() {
+                myTimerTaskHandler.post(new Runnable() {
+                    public void run(){
+                        updateMap();
+                        setToUpdateAtMidnight();
+                    }
+                });
+            }
+        };
+        try {
+            myTimer.schedule(mTt,new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
+                    .parse(LocalDate.now().plusDays(1).toString()+" 00:00:00"));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
     }
 
     private void checkForMapUpdate() {
@@ -206,11 +221,30 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
 
             if (lastDownloadDate.isBefore(LocalDate.now())) {
-                Methods.updateMap(settings);
+                updateMap();
             } else {
                 System.out.println("MAP IS UP TO DATE");
             }
         }
+    }
+
+    public void updateMap() {
+        LocalDate today = LocalDate.now();
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("map", "");
+        editor.apply();
+        String year = String.valueOf(today.getYear());
+        String month = String.valueOf(today.getMonthValue());
+        if (month.length() == 1) {
+            month = "0" + month;
+        }
+        String day = String.valueOf(today.getDayOfMonth());
+        if (day.length() == 1) {
+            day = "0" + day;
+        }
+        String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
+        System.out.println("DOWNLOADING FROM URL: " + url);
+        new DownloadMapTask(this, map, markers, settings).execute(url);
     }
 
     @Override
@@ -264,22 +298,17 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         super.onResume();
         mapView.onResume();
         checkForMapUpdate();
-        if (awake != null) {
-            awake.wakeUp();
-            if (!awake.waitingForMidinight()) {
-                awake.setWaitingForMidnight();
-                new WaitForMidnight(settings, awake).execute();
-            }
-        }
+        myTimer = new Timer();
+        myTimerTaskHandler = new Handler();
+        setToUpdateAtMidnight();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         mapView.onPause();
-        if (awake != null) {
-            awake.goToSleep();
-        }
+        myTimer.cancel();
+        myTimer.purge();
     }
 
     @Override
@@ -292,9 +321,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             locationPlugin.onStop();
         }
         mapView.onStop();
-        if (awake != null) {
-            awake.goToSleep();
-        }
     }
 
     @Override
@@ -315,9 +341,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         mapView.onDestroy();
         if (locationEngine != null) {
             locationEngine.deactivate();
-        }
-        if (awake != null) {
-            awake.goToSleep();
         }
     }
 
@@ -352,72 +375,18 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     }
 }
 
-class Methods {
-    public static void updateMap(SharedPreferences settings) {
-        LocalDate today = LocalDate.now();
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("map", "");
-        editor.apply();
-        String year = String.valueOf(today.getYear());
-        String month = String.valueOf(today.getMonthValue());
-        if (month.length() == 1) {
-            month = "0" + month;
-        }
-        String day = String.valueOf(today.getDayOfMonth());
-        if (day.length() == 1) {
-            day = "0" + day;
-        }
-        String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
-        new DownloadMapTask(settings).execute(url);
-    }
-}
-
-// Detects midnight and sleeps well, but doesn't update the map for some reason
-class WaitForMidnight extends AsyncTask<Void, Void, String> {
-    private SharedPreferences settings;
-    private Awake awake;
-
-    WaitForMidnight(SharedPreferences settings, Awake awake) {
-        super();
-        this.settings = settings;
-        this.awake = awake;
-    }
-
-    @Override
-    protected String doInBackground(Void... voids) {
-        try {
-            boolean waitingForMapUpdate = false;
-            System.out.println("WAITINGFORMIDINIGHT: STARTED WAITING");
-            while (awake.isAwake()) {
-                Thread.sleep(1000);
-                String lastUpdate = settings.getString("lastDownloadDate", "");
-                if (!lastUpdate.equals("")) {
-                    if (LocalDate.parse(lastUpdate).isBefore(LocalDate.now())) {
-                        if (!waitingForMapUpdate) {
-                            System.out.println("WAITINGFORMIDNIGHT: ITS MIDNIGHT, UPDATING MAP");
-                            Methods.updateMap(settings);
-                            waitingForMapUpdate = true;
-                        }
-                    } else if (waitingForMapUpdate) {
-                        waitingForMapUpdate = false;
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            System.out.printf("EXCEPTION WHEN WAITINGFORMIDNIGHT, EXCEPTION IS:\n%s\n", e);
-        }
-        awake.setNotWaitingForMidnight();
-        System.out.println("WAITINGFORMIDINIGHT: STOPPED WAITING");
-        return "";
-    }
-}
-
 class DownloadMapTask extends AsyncTask<String, Void, String> {
     private SharedPreferences settings;
+    private MainActivity mainActivity;
+    private MapboxMap map;
+    private ArrayList<MarkerOptions> markers;
 
-    DownloadMapTask(SharedPreferences settings) {
+    DownloadMapTask(MainActivity mainActivity, MapboxMap map, ArrayList<MarkerOptions> markers, SharedPreferences settings) {
         super();
         this.settings = settings;
+        this.mainActivity = mainActivity;
+        this.map = map;
+        this.markers = markers;
     }
 
     @Override
@@ -434,12 +403,14 @@ class DownloadMapTask extends AsyncTask<String, Void, String> {
     }
 
     private InputStream downloadUrl(URL url) throws IOException {
+        System.out.println("Making GET request to JSON server");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setReadTimeout(10000); // milliseconds
         conn.setConnectTimeout(15000); // milliseconds
         conn.setRequestMethod("GET");
         conn.setDoInput(true);
         conn.connect();
+        System.out.println("Got response from JSON server");
         return conn.getInputStream();
     }
 
@@ -447,6 +418,7 @@ class DownloadMapTask extends AsyncTask<String, Void, String> {
     private String readStream(InputStream stream)
             throws IOException {
         // Read input from stream, build result as a string
+        System.out.println("Started processing JSON response");
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
         StringBuilder result = new StringBuilder();
         String line;
@@ -461,56 +433,65 @@ class DownloadMapTask extends AsyncTask<String, Void, String> {
 
     @Override
     protected void onPostExecute(String result) {
+        System.out.println("Finished processing JSON response");
         super.onPostExecute(result);
-        DownloadCompleteRunner.downloadMapComplete(result, settings);
+        DownloadCompleteRunner.downloadMapComplete(mainActivity, map, markers, result, settings);
     }
 }
 
 class DownloadCompleteRunner {
 
-    static void downloadMapComplete(String result, SharedPreferences settings) {
-        if (!(result.equals("FAILED"))) {
+    static void downloadMapComplete(MainActivity mainActivity, MapboxMap map, ArrayList<MarkerOptions> markers, String mapJSONString, SharedPreferences settings) {
+        if (!(mapJSONString.equals("FAILED"))) {
             SharedPreferences.Editor editor = settings.edit();
-            editor.putString("map", result);
+            editor.putString("map", mapJSONString);
             editor.putString("lastDownloadDate", LocalDate.now().toString());
             editor.apply();
             System.out.println("SUCCEEDED IN DOWNLOADING MAP");
+            updateMap(mainActivity, map, markers, mapJSONString);
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
         }
     }
+
+    static void updateMap(MainActivity mainActivity, MapboxMap map, ArrayList<MarkerOptions> markers, String mapJSONString) {
+        map.clear();
+        markers = new ArrayList<>();
+        if (!mapJSONString.equals("")) {
+            try {
+                JSONObject mapJSON = new JSONObject(mapJSONString);
+                JSONArray markersJSON = mapJSON.getJSONArray("features");
+                for (int i = 0; i < markersJSON.length(); i++) {
+                    JSONObject marker = markersJSON.getJSONObject(i);
+                    JSONArray pos = marker.getJSONObject("geometry").getJSONArray("coordinates");
+                    Icon icon = Methods.drawableToIcon(mainActivity, R.drawable.marker_icon,
+                            Color.parseColor(marker.getJSONObject("properties").getString("marker-color")));
+                    markers.add(new MarkerOptions()
+                            .position(new LatLng(Double.parseDouble(pos.getString(1)),
+                                    Double.parseDouble(pos.getString(0))))
+                            .title(marker.getJSONObject("properties").getString("id"))
+                            .icon(icon));
+                }
+                map.addMarkers(markers);
+                System.out.println("ADDED NEW MARKERS TO MAP");
+                System.out.printf("Added %s markers to the map\n", markersJSON.length());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }
 
-class Awake {
-    private boolean awake;
-    private boolean waiting;
-
-    Awake() {
-        awake = true;
-        waiting = true;
-    }
-
-    public void goToSleep() {
-        awake = false;
-    }
-
-    public void wakeUp() {
-        awake = true;
-    }
-
-    public boolean isAwake() {
-        return awake;
-    }
-
-    public void setNotWaitingForMidnight() {
-        waiting = false;
-    }
-
-    public void setWaitingForMidnight() {
-        waiting = true;
-    }
-
-    public boolean waitingForMidinight() {
-        return waiting;
+class Methods{
+    // I found this method here https://stackoverflow.com/questions/37805379/mapbox-for-android-changing-color-of-a-markers-icon
+    static Icon drawableToIcon(@NonNull Context context, @DrawableRes int id, @ColorInt int colorRes) {
+        Drawable vectorDrawable = ResourcesCompat.getDrawable(context.getResources(), id, context.getTheme());
+        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
+                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        DrawableCompat.setTint(vectorDrawable, colorRes);
+        vectorDrawable.draw(canvas);
+        return IconFactory.getInstance(context).fromBitmap(bitmap);
     }
 }
