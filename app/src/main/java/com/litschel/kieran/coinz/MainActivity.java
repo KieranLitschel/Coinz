@@ -4,12 +4,20 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.ColorInt;
+import android.support.annotation.DrawableRes;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.res.ResourcesCompat;
+import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
@@ -17,6 +25,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.annotations.Icon;
+import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.MarkerOptions;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
@@ -146,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 System.out.println("Detected map change");
                 String mapString = settings.getString("map", "");
                 if (!mapString.equals("")) {
-                    if (markers != null){
+                    if (markers != null) {
                         map.clear();
                     }
                     markers = new ArrayList<>();
@@ -156,12 +166,16 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                         for (int i = 0; i < markersJSON.length(); i++) {
                             JSONObject marker = markersJSON.getJSONObject(i);
                             JSONArray pos = marker.getJSONObject("geometry").getJSONArray("coordinates");
+                            Icon icon = drawableToIcon(this, R.drawable.marker_icon,
+                                    Color.parseColor(marker.getJSONObject("properties").getString("marker-color")));
                             markers.add(new MarkerOptions()
-                                    .position(new LatLng(Double.parseDouble(pos.getString(1)), Double.parseDouble(pos.getString(0))))
-                                    .title(marker.getJSONObject("properties").getString("id")));
+                                    .position(new LatLng(Double.parseDouble(pos.getString(1)),
+                                            Double.parseDouble(pos.getString(0))))
+                                    .title(marker.getJSONObject("properties").getString("id"))
+                                    .icon(icon));
                         }
                         map.addMarkers(markers);
-                        System.out.printf("Addded %s markers to the map\n",markersJSON.length());
+                        System.out.printf("Addded %s markers to the map\n", markersJSON.length());
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
@@ -173,6 +187,18 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         checkForMapUpdate();
         awake = new Awake();
         new WaitForMidnight(settings, awake).execute();
+    }
+
+    // I found this method here https://stackoverflow.com/questions/37805379/mapbox-for-android-changing-color-of-a-markers-icon
+    public static Icon drawableToIcon(@NonNull Context context, @DrawableRes int id, @ColorInt int colorRes) {
+        Drawable vectorDrawable = ResourcesCompat.getDrawable(context.getResources(), id, context.getTheme());
+        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
+                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        DrawableCompat.setTint(vectorDrawable, colorRes);
+        vectorDrawable.draw(canvas);
+        return IconFactory.getInstance(context).fromBitmap(bitmap);
     }
 
     private void checkForMapUpdate() {
