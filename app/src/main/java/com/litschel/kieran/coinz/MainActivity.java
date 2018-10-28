@@ -229,6 +229,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     }
 
     public void updateMap() {
+        map.clear(); // Clear the map before updating it to ensure that if there's no internet user can't play with old map
         LocalDate today = LocalDate.now();
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("map", "");
@@ -455,7 +456,6 @@ class DownloadCompleteRunner {
     }
 
     static void updateMap(MainActivity mainActivity, MapboxMap map, ArrayList<MarkerOptions> markers, String mapJSONString) {
-        map.clear();
         markers = new ArrayList<>();
         if (!mapJSONString.equals("")) {
             try {
