@@ -17,6 +17,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.annotations.MarkerOptions;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
@@ -37,6 +38,10 @@ import com.mapbox.android.core.location.LocationEngineProvider;
 import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,6 +49,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener {
@@ -56,6 +62,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private SharedPreferences settings;
     private final String settingsFile = "SettingsFile";
     private Awake awake;
+    private JSONArray markersJSON;
+    private ArrayList<MarkerOptions> markers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,18 +140,50 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 .build();
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
 
+        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
+        SharedPreferences.OnSharedPreferenceChangeListener spChanged = (sharedPreferences, key) -> {
+            if (key.equals("map")) {
+                System.out.println("Detected map change");
+                String mapString = settings.getString("map", "");
+                if (!mapString.equals("")) {
+                    if (markers != null){
+                        map.clear();
+                    }
+                    markers = new ArrayList<>();
+                    try {
+                        JSONObject mapJSON = new JSONObject(mapString);
+                        markersJSON = mapJSON.getJSONArray("features");
+                        for (int i = 0; i < markersJSON.length(); i++) {
+                            JSONObject marker = markersJSON.getJSONObject(i);
+                            JSONArray pos = marker.getJSONObject("geometry").getJSONArray("coordinates");
+                            markers.add(new MarkerOptions()
+                                    .position(new LatLng(Double.parseDouble(pos.getString(1)), Double.parseDouble(pos.getString(0))))
+                                    .title(marker.getJSONObject("properties").getString("id")));
+                        }
+                        map.addMarkers(markers);
+                        System.out.printf("Addded %s markers to the map\n",markersJSON.length());
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        };
+        settings.registerOnSharedPreferenceChangeListener(spChanged);
+
         checkForMapUpdate();
         awake = new Awake();
         new WaitForMidnight(settings, awake).execute();
     }
 
     private void checkForMapUpdate() {
-        LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
+        if (settings != null) {
+            LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
 
-        if (lastDownloadDate.isBefore(LocalDate.now())) {
-            Methods.updateMap(settings);
-        } else {
-            System.out.println("MAP IS UP TO DATE");
+            if (lastDownloadDate.isBefore(LocalDate.now())) {
+                Methods.updateMap(settings);
+            } else {
+                System.out.println("MAP IS UP TO DATE");
+            }
         }
     }
 
@@ -183,7 +223,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @SuppressWarnings({"MissingPermission"})
     protected void onStart() {
         super.onStart();
-        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
+
         if (locationEngine != null) {
             locationEngine.requestLocationUpdates();
         }
@@ -286,6 +326,26 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     }
 }
 
+class Methods {
+    public static void updateMap(SharedPreferences settings) {
+        LocalDate today = LocalDate.now();
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("map", "");
+        editor.apply();
+        String year = String.valueOf(today.getYear());
+        String month = String.valueOf(today.getMonthValue());
+        if (month.length() == 1) {
+            month = "0" + month;
+        }
+        String day = String.valueOf(today.getDayOfMonth());
+        if (day.length() == 1) {
+            day = "0" + day;
+        }
+        String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
+        new DownloadMapTask(settings).execute(url);
+    }
+}
+
 // Detects midnight and sleeps well, but doesn't update the map for some reason
 class WaitForMidnight extends AsyncTask<Void, Void, String> {
     private SharedPreferences settings;
@@ -307,12 +367,12 @@ class WaitForMidnight extends AsyncTask<Void, Void, String> {
                 String lastUpdate = settings.getString("lastDownloadDate", "");
                 if (!lastUpdate.equals("")) {
                     if (LocalDate.parse(lastUpdate).isBefore(LocalDate.now())) {
-                        if (!waitingForMapUpdate){
+                        if (!waitingForMapUpdate) {
                             System.out.println("WAITINGFORMIDNIGHT: ITS MIDNIGHT, UPDATING MAP");
                             Methods.updateMap(settings);
                             waitingForMapUpdate = true;
                         }
-                    } else if (waitingForMapUpdate){
+                    } else if (waitingForMapUpdate) {
                         waitingForMapUpdate = false;
                     }
                 }
@@ -323,26 +383,6 @@ class WaitForMidnight extends AsyncTask<Void, Void, String> {
         awake.setNotWaitingForMidnight();
         System.out.println("WAITINGFORMIDINIGHT: STOPPED WAITING");
         return "";
-    }
-}
-
-class Methods{
-    public static void updateMap(SharedPreferences settings) {
-        LocalDate today = LocalDate.now();
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("map", "");
-        editor.apply();
-        String year = String.valueOf(today.getYear());
-        String month = String.valueOf(today.getMonthValue());
-        if (month.length() == 1) {
-            month = "0" + month;
-        }
-        String day = String.valueOf(today.getDayOfMonth());
-        if (day.length() == 1) {
-            day = "0" + day;
-        }
-        String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
-        new DownloadMapTask(settings).execute(url);
     }
 }
 
@@ -408,7 +448,7 @@ class DownloadCompleteRunner {
             editor.putString("map", result);
             editor.putString("lastDownloadDate", LocalDate.now().toString());
             editor.apply();
-            System.out.println("SUCEEDED IN DOWNLOADING MAP");
+            System.out.println("SUCCEEDED IN DOWNLOADING MAP");
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
         }
