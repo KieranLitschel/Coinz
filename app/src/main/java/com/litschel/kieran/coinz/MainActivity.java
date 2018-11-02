@@ -8,6 +8,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -63,7 +65,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -197,7 +198,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
     }
 
-    public void setToUpdateAtMidnight(){
+    private void setToUpdateAtMidnight(){
         TimerTask mTt = new TimerTask() {
             public void run() {
                 myTimerTaskHandler.post(new Runnable() {
@@ -245,7 +246,35 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
+        if (!isNetworkAvailable()){
+            Snackbar.make(findViewById(R.id.toolbar), "Will update map when there is an internet connection", Snackbar.LENGTH_LONG)
+                    .show();
+            setToUpdateOnInternet();
+        }
         new DownloadMapTask(this, map, markers, settings).execute(url);
+    }
+
+    private void setToUpdateOnInternet(){
+        TimerTask mTtInternet = new TimerTask() {
+            public void run() {
+                myTimerTaskHandler.post(() -> {
+                    if (isNetworkAvailable()){
+                        updateMap();
+                    } else {
+                        setToUpdateOnInternet();
+                    }
+                });
+            }
+        };
+        myTimer.schedule(mTtInternet,5000);
+    }
+
+    // I found this method here (https://stackoverflow.com/questions/4238921/detect-whether-there-is-an-internet-connection-available-on-android)
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
     @Override
@@ -297,10 +326,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @Override
     protected void onResume() {
         super.onResume();
-        mapView.onResume();
-        checkForMapUpdate();
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
+        mapView.onResume();
+        checkForMapUpdate();
         setToUpdateAtMidnight();
     }
 
