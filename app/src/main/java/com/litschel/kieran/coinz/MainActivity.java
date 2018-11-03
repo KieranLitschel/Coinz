@@ -95,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private Timer myTimer;
     private Handler myTimerTaskHandler;
     private static final int RC_SIGN_IN = 9000;
-    private FirebaseUser user;
+    private String uid;
     private LocationManager locationManager;
     private Context mContext;
     private DatabaseReference mDatabase;
@@ -182,6 +182,11 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
 
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
+        uid = settings.getString("uid", "");
+
+        if (uid.equals("")) {
+            signIn();
+        }
 
         if (justStarted && (!settings.getString("map", "").equals(""))) {
             updateMarkers();
@@ -399,9 +404,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @Override
     protected void onResume() {
         super.onResume();
-        if (user == null) {
-            signIn();
-        }
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         mapView.onResume();
@@ -430,7 +432,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
             if (resultCode == RESULT_OK) {
                 // Successfully signed in
-                user = FirebaseAuth.getInstance().getCurrentUser();
+                uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+                SharedPreferences.Editor editor = settings.edit();
+                editor.putString("uid", uid);
+                editor.apply();
                 System.out.println("USER SIGNED IN SUCCESSFULLY");
                 // ...
             } else {
@@ -441,6 +446,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 } else {
                     Snackbar.make(findViewById(R.id.toolbar), "You must sign in to use this app.", Snackbar.LENGTH_LONG)
                             .show();
+                    signIn();
                 }
             }
         }
@@ -501,8 +507,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         // as you specify a parent activity in AndroidManifest.xml.
 
         switch (item.getItemId()) {
-            case R.id.action_settings:
-                return true;
             case R.id.action_reset_view:
                 CameraPosition position = new CameraPosition.Builder()
                         .target(new LatLng(55.944425, -3.188396))
@@ -512,9 +516,20 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                         .build();
                 map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
                 return true;
+            case R.id.action_logout:
+                logout();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    private void logout(){
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("uid", "");
+        editor.apply();
+        uid = "";
+        signIn();
     }
 
     @Override
