@@ -2,6 +2,7 @@ package com.litschel.kieran.coinz;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -27,6 +28,10 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.firebase.ui.auth.AuthUI;
+import com.firebase.ui.auth.IdpResponse;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.IconFactory;
@@ -65,6 +70,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -82,6 +88,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private ArrayList<MarkerOptions> markers;
     private Timer myTimer;
     private Handler myTimerTaskHandler;
+    private static final int RC_SIGN_IN = 9000;
+    private FirebaseUser user;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -313,7 +321,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @SuppressWarnings({"MissingPermission"})
     protected void onStart() {
         super.onStart();
-
         if (locationEngine != null) {
             locationEngine.requestLocationUpdates();
         }
@@ -326,11 +333,51 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @Override
     protected void onResume() {
         super.onResume();
+        if (user == null){
+            signIn();
+        }
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         mapView.onResume();
         checkForMapUpdate();
         setToUpdateAtMidnight();
+    }
+
+    private void signIn(){
+        List<AuthUI.IdpConfig> providers = Arrays.asList(
+                new AuthUI.IdpConfig.EmailBuilder().build());
+
+        startActivityForResult(
+                AuthUI.getInstance()
+                        .createSignInIntentBuilder()
+                        .setAvailableProviders(providers)
+                        .build(),
+                RC_SIGN_IN);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RC_SIGN_IN) {
+            IdpResponse response = IdpResponse.fromResultIntent(data);
+
+            if (resultCode == RESULT_OK) {
+                // Successfully signed in
+                user = FirebaseAuth.getInstance().getCurrentUser();
+                System.out.println("USER SIGNED IN SUCCESSFULLY");
+                // ...
+            } else {
+                if (response!=null) {
+                    System.out.println("USER FAILED TO SIGN IN WITH ERROR CODE" + response.getError().getErrorCode());
+                    Snackbar.make(findViewById(R.id.toolbar), String.format("Failed to sign in with error code %s, please try again", response.getError().getErrorCode()), Snackbar.LENGTH_LONG)
+                            .show();
+                } else {
+                    Snackbar.make(findViewById(R.id.toolbar), "You must sign in to use this app.", Snackbar.LENGTH_LONG)
+                            .show();
+                }
+            }
+        }
     }
 
     @Override
