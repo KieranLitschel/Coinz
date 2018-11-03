@@ -34,6 +34,8 @@ import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.IconFactory;
@@ -96,6 +98,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private FirebaseUser user;
     private LocationManager locationManager;
     private Context mContext;
+    private DatabaseReference mDatabase;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,6 +131,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             map = mapboxMap;
             enableLocationPlugin();
         });
+
+        mDatabase = FirebaseDatabase.getInstance().getReference();
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -226,6 +231,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
     };
 
+    // I made this a seperate method to make testing easier
     private void removeMarkers(ArrayList<Marker> markersToRemove) {
         String mapJSONString = settings.getString("map", "");
         HashMap<Marker, String[]> markerDetails = new HashMap<>();
