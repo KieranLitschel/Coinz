@@ -74,6 +74,7 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -132,11 +133,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Marker marker = markers.get(0);
-                // GET RID OF THIS BEFORE SUBMISSION
-                Snackbar.make(view, "Removed marker " + marker.getTitle(), Snackbar.LENGTH_LONG)
-                        .show();
-                removeMarker(marker);
+                // GET RID OF BEFORE SUBMISSION
+                ArrayList<Marker> markersToRemove = new ArrayList<>();
+                markersToRemove.add(markers.get(0));
+                removeMarkers(markersToRemove);
             }
         });
     }
@@ -206,9 +206,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                         markersToRemove.add(marker);
                     }
                 }
-                for (Marker marker : markersToRemove) {
-                    removeMarker(marker);
-                }
+                removeMarkers(markersToRemove);
             }
         }
 
@@ -228,10 +226,44 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
     };
 
-    private void removeMarker(Marker marker) {
-        map.removeMarker(marker);
-        markers.remove(marker);
-        System.out.println("Removed marker " + marker.getTitle());
+    private void removeMarkers(ArrayList<Marker> markersToRemove) {
+        String mapJSONString = settings.getString("map", "");
+        HashMap<Marker, String[]> markerDetails = new HashMap<>();
+        try {
+            JSONObject mapJSON = new JSONObject(mapJSONString);
+            JSONArray markersJSON = mapJSON.getJSONArray("features");
+            int removed = 0;
+            int i = 0;
+            while (i < markersJSON.length() && removed < markersToRemove.size()) {
+                JSONObject markerJSON = markersJSON.getJSONObject(i);
+                for (Marker marker : markersToRemove) {
+                    if (marker.getTitle().equals(markerJSON.getJSONObject("properties").getString("id"))) {
+                        markerDetails.put(marker, new String[]{
+                                markerJSON.getJSONObject("properties").getString("value"),
+                                markerJSON.getJSONObject("properties").getString("currency")
+                        });
+                        markersJSON.remove(i);
+                        i--;
+                        removed++;
+                        break;
+                    }
+                }
+                i++;
+            }
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("map", mapJSON.toString());
+            editor.apply();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        for (Marker marker : markersToRemove) {
+            map.removeMarker(marker);
+            markers.remove(marker);
+            Snackbar.make(findViewById(R.id.toolbar), "Collected " + markerDetails.get(marker)[0]
+                    + " " + markerDetails.get(marker)[1], Snackbar.LENGTH_LONG).show();
+            System.out.println("Removed marker " + marker.getTitle());
+        }
     }
 
     private void setToUpdateAtMidnight() {
@@ -493,10 +525,13 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         String mapJSONString = settings.getString("map", "");
         map.clear();
         updateMarkers(mapJSONString);
-        System.out.println("DONE");
     }
 
     public void updateMarkers(String mapJSONString) {
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("map", mapJSONString);
+        editor.putString("lastDownloadDate", LocalDate.now().toString());
+        editor.apply();
         markers = new ArrayList<>();
         if (!mapJSONString.equals("")) {
             try {
@@ -591,7 +626,6 @@ class DownloadCompleteRunner {
     static void downloadMapComplete(String mapJSONString, MapDownloadedCallback context) {
         if (!(mapJSONString.equals("FAILED"))) {
             context.onMapDownloaded(mapJSONString);
-            System.out.println("DONE");
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
         }
