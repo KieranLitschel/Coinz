@@ -190,6 +190,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
 
+        System.out.println("GOT UID OF "+uid);
+
         db = FirebaseFirestore.getInstance();
 
         if (uid.equals("")) {
@@ -248,6 +250,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private void removeMarkers(ArrayList<Marker> markersToRemove) {
         String mapJSONString = settings.getString("map", "");
         HashMap<Marker, String[]> markerDetails = new HashMap<>();
+
         try {
             JSONObject mapJSON = new JSONObject(mapJSONString);
             JSONArray markersJSON = mapJSON.getJSONArray("features");
@@ -258,12 +261,13 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 for (Marker marker : markersToRemove) {
                     if (marker.getTitle().equals(markerJSON.getJSONObject("properties").getString("id"))) {
                         markerDetails.put(marker, new String[]{
-                                markerJSON.getJSONObject("properties").getString("value"),
-                                markerJSON.getJSONObject("properties").getString("currency")
+                                markerJSON.getJSONObject("properties").getString("currency"),
+                                markerJSON.getJSONObject("properties").getString("value")
                         });
                         markersJSON.remove(i);
                         i--;
                         removed++;
+
                         break;
                     }
                 }
@@ -279,8 +283,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         for (Marker marker : markersToRemove) {
             map.removeMarker(marker);
             markers.remove(marker);
-            Snackbar.make(findViewById(R.id.toolbar), "Collected " + markerDetails.get(marker)[0]
-                    + " " + markerDetails.get(marker)[1], Snackbar.LENGTH_LONG).show();
+            String currency = markerDetails.get(marker)[0];
+            float value = Integer.parseInt(markerDetails.get(marker)[1]);
+            Snackbar.make(findViewById(R.id.toolbar), "Collected " + value
+                    + " " + currency, Snackbar.LENGTH_LONG).show();
             System.out.println("Removed marker " + marker.getTitle());
         }
     }
@@ -480,11 +486,11 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
     private void setFirstTimeUser(){
         Map<String,Object> user_defaults = new HashMap<>();
-        user_defaults.put("DOLR",0);
-        user_defaults.put("GOLD",0);
-        user_defaults.put("PENY",0);
-        user_defaults.put("QUID",0);
-        user_defaults.put("SHIL",0);
+        user_defaults.put("DOLR",0.0);
+        user_defaults.put("GOLD",0.0);
+        user_defaults.put("PENY",0.0);
+        user_defaults.put("QUID",0.0);
+        user_defaults.put("SHIL",0.0);
         db.collection("users").document(uid)
                 .set(user_defaults)
                 .addOnSuccessListener(aVoid -> System.out.println("SUCCESSFULLY ADDED USER TO DATABASE"))
