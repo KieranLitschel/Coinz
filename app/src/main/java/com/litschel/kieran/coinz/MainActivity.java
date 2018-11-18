@@ -26,16 +26,23 @@ import android.support.v4.content.res.ResourcesCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.IconFactory;
@@ -78,6 +85,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -98,7 +106,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private String uid;
     private LocationManager locationManager;
     private Context mContext;
-    private DatabaseReference mDatabase;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,8 +139,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             map = mapboxMap;
             enableLocationPlugin();
         });
-
-        mDatabase = FirebaseDatabase.getInstance().getReference();
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -183,6 +189,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
+
+        db = FirebaseFirestore.getInstance();
 
         if (uid.equals("")) {
             signIn();
@@ -436,6 +444,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 SharedPreferences.Editor editor = settings.edit();
                 editor.putString("uid", uid);
                 editor.apply();
+                checkFirstTimeUser();
                 System.out.println("USER SIGNED IN SUCCESSFULLY");
                 // ...
             } else {
@@ -450,6 +459,36 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 }
             }
         }
+    }
+
+    private void checkFirstTimeUser(){
+        DocumentReference docRef = db.collection("users").document(uid);
+        docRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot document = task.getResult();
+                if (!document.exists()) {
+                    System.out.println("FIRST TIME USER, SETTING DEFAULTS");
+                    setFirstTimeUser();
+                } else {
+                    System.out.println("USER EXISTS IN DATABASE");
+                }
+            } else {
+                System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
+            }
+        });
+    }
+
+    private void setFirstTimeUser(){
+        Map<String,Object> user_defaults = new HashMap<>();
+        user_defaults.put("DOLR",0);
+        user_defaults.put("GOLD",0);
+        user_defaults.put("PENY",0);
+        user_defaults.put("QUID",0);
+        user_defaults.put("SHIL",0);
+        db.collection("users").document(uid)
+                .set(user_defaults)
+                .addOnSuccessListener(aVoid -> System.out.println("SUCCESSFULLY ADDED USER TO DATABASE"))
+                .addOnFailureListener(e -> System.out.println("FAILED TO ADD USER TO DATABASE"));
     }
 
     @Override
