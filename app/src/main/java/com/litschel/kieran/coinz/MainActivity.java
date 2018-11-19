@@ -43,6 +43,8 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.Transaction;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.IconFactory;
@@ -88,7 +90,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.StampedLock;
 
 public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapDownloadedCallback, CoinsUpdatedCallback {
 
@@ -108,7 +114,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private LocationManager locationManager;
     private Context mContext;
     private FirebaseFirestore db;
-    private ReentrantLock coinsUpdateLock = new ReentrantLock();
+    private StampedLock coinsUpdateLock = new StampedLock();
+    private ExecutorService coinsUpdateExecutor = Executors.newFixedThreadPool(1);
 
 
     @Override
@@ -256,7 +263,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
-        new CoinsUpdateTask(this, coinsUpdateLock, db, uid, markersToRemove, settings).run();
+        // Use an executor to avoid having to create new threads which is expensive
+        coinsUpdateExecutor.submit(new CoinsUpdateTask(this, coinsUpdateLock, db, uid, markersToRemove, settings));
     }
 
     private void setToUpdateAtMidnight() {
@@ -593,7 +601,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     }
 
     @Override
-    public void onCoinsUpdated(HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
+    public void onCoinsUpdated(long lockStamp, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
         ArrayList<String[]> coinsCollected = new ArrayList<>();
         for (Marker marker : markerDetails.keySet()) {
             map.removeMarker(marker);
@@ -634,7 +642,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("map", mapJSON.toString());
         editor.apply();
-        coinsUpdateLock.unlock();
+        coinsUpdateLock.unlockWrite(lockStamp);
     }
 }
 
@@ -712,18 +720,18 @@ class DownloadCompleteRunner {
 }
 
 interface CoinsUpdatedCallback {
-    void onCoinsUpdated(HashMap<Marker, String[]> markerDetails, JSONObject mapJSON);
+    void onCoinsUpdated(long lockStamp, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON);
 }
 
 class CoinsUpdateTask implements Runnable {
     private CoinsUpdatedCallback context;
-    private ReentrantLock coinsUpdateLock;
+    private StampedLock coinsUpdateLock;
     private FirebaseFirestore db;
     private String uid;
     private ArrayList<Marker> markersToRemove;
     private SharedPreferences settings;
 
-    CoinsUpdateTask(CoinsUpdatedCallback context, ReentrantLock coinsUpdateLock, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+    CoinsUpdateTask(CoinsUpdatedCallback context, StampedLock coinsUpdateLock, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
         this.coinsUpdateLock = coinsUpdateLock;
@@ -735,7 +743,7 @@ class CoinsUpdateTask implements Runnable {
 
     public void run() {
 
-        coinsUpdateLock.lock();
+        final long lockStamp = coinsUpdateLock.writeLock();
 
         String mapJSONString = settings.getString("map", "");
         HashMap<Marker, String[]> markerDetails = new HashMap<>();
@@ -775,51 +783,43 @@ class CoinsUpdateTask implements Runnable {
 
         if (markerDetails.size()>0){
             final JSONObject mapJSONFinal = mapJSON;
-            DocumentReference getRef = db.collection("users").document(uid);
-            getRef.get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    if (document.exists()) {
-                        Map<String, Object> newValues = new HashMap<>();
-                        for (String currency : currencies) {
-                            newValues.put(currency, document.getDouble(currency));
-                        }
-                        for (Marker marker : markerDetails.keySet()) {
-                            String currency = markerDetails.get(marker)[0];
-                            Double value = Double.parseDouble(markerDetails.get(marker)[1]);
-                            newValues.put(currency, (double) newValues.get(currency) + value);
-                        }
-                        DocumentReference updateRef = db.collection("users").document(uid);
-                        updateRef
-                                .update(newValues)
-                                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                                    @Override
-                                    public void onSuccess(Void aVoid) {
-                                        CoinsUpdateCompleteRunner.coinsUpdateComplete(context,markerDetails,mapJSONFinal);
-                                    }
-                                })
-                                .addOnFailureListener(new OnFailureListener() {
-                                    @Override
-                                    public void onFailure(@NonNull Exception e) {
-                                        System.out.println("Failed to update document with new coin " +
-                                                "values with exception " + task.getException());
-                                    }
-                                });
-                    } else {
-                        System.out.println("Tried to update coins but user does not exist");
+            final DocumentReference docRef = db.collection("users").document(uid);
+            // Use transactions as opposed to just querying the database and then writing it as transactions
+            // ensure no writes have occured to the fields since they were read, preventing potential
+            // synchronization errors
+            db.runTransaction(new Transaction.Function<Void>() {
+                @Override
+                public Void apply(Transaction transaction) throws FirebaseFirestoreException {
+                    DocumentSnapshot snapshot = transaction.get(docRef);
+                    Map<String, Object> newValues = new HashMap<>();
+                    for (String currency : currencies) {
+                        newValues.put(currency, snapshot.getDouble(currency));
                     }
-                } else {
-                    System.out.println("Task failed with exception " + task.getException());
+                    for (Marker marker : markerDetails.keySet()) {
+                        String currency = markerDetails.get(marker)[0];
+                        Double value = Double.parseDouble(markerDetails.get(marker)[1]);
+                        newValues.put(currency, (double) newValues.get(currency) + value);
+                    }
+                    transaction.update(docRef,newValues);
+
+                    // Success
+                    return null;
+                }
+            }).addOnSuccessListener(new OnSuccessListener<Void>() {
+                @Override
+                public void onSuccess(Void aVoid) {
+                    context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
+                }
+            })
+            .addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception e) {
+                    System.out.println("Task failed with exception " + e);
                 }
             });
+        } else {
+            coinsUpdateLock.unlockWrite(lockStamp);
         }
-    }
-}
-
-class CoinsUpdateCompleteRunner {
-
-    static void coinsUpdateComplete(CoinsUpdatedCallback context, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
-        context.onCoinsUpdated(markerDetails, mapJSON);
     }
 }
 
