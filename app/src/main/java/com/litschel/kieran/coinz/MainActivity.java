@@ -88,8 +88,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.locks.ReentrantLock;
 
-public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapDownloadedCallback {
+public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapDownloadedCallback, CoinsUpdatedCallback {
 
     private MapView mapView;
     private MapboxMap map;
@@ -107,6 +108,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private LocationManager locationManager;
     private Context mContext;
     private FirebaseFirestore db;
+    private ReentrantLock coinsUpdateLock = new ReentrantLock();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -190,7 +193,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
 
-        System.out.println("GOT UID OF "+uid);
+        System.out.println("GOT UID OF " + uid);
 
         db = FirebaseFirestore.getInstance();
 
@@ -226,7 +229,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                         markersToRemove.add(marker);
                     }
                 }
-                removeMarkers(markersToRemove);
+                if (markersToRemove.size() > 0) {
+                    removeMarkers(markersToRemove);
+                }
             }
         }
 
@@ -248,89 +253,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
     // I made this a seperate method to make testing easier
     private void removeMarkers(ArrayList<Marker> markersToRemove) {
-        String mapJSONString = settings.getString("map", "");
-        HashMap<Marker, String[]> markerDetails = new HashMap<>();
-        ArrayList<String> currencies = new ArrayList<>();
 
-        try {
-            JSONObject mapJSON = new JSONObject(mapJSONString);
-            JSONArray markersJSON = mapJSON.getJSONArray("features");
-            int removed = 0;
-            int i = 0;
-            while (i < markersJSON.length() && removed < markersToRemove.size()) {
-                JSONObject markerJSON = markersJSON.getJSONObject(i);
-                for (Marker marker : markersToRemove) {
-                    if (marker.getTitle().equals(markerJSON.getJSONObject("properties").getString("id"))) {
-                        String currency = markerJSON.getJSONObject("properties").getString("currency");
-                        String value = markerJSON.getJSONObject("properties").getString("value");
-                        markerDetails.put(marker, new String[]{
-                                currency,
-                                value
-                        });
-                        if (!currencies.contains(currency)){
-                            currencies.add(currency);
-                        }
-                        markersJSON.remove(i);
-                        i--;
-                        removed++;
-
-                        break;
-                    }
-                }
-                i++;
-            }
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putString("map", mapJSON.toString());
-            editor.apply();
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        DocumentReference getRef = db.collection("users").document(uid);
-        getRef.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                DocumentSnapshot document = task.getResult();
-                if (document.exists()) {
-                    Map<String,Object> newValues = new HashMap<>();
-                    for (String currency : currencies){
-                        newValues.put(currency,document.getDouble(currency));
-                    }
-                    for (Marker marker : markerDetails.keySet()){
-                        String currency = markerDetails.get(marker)[0];
-                        Double value = Double.parseDouble(markerDetails.get(marker)[1]);
-                        newValues.put(currency,(double) newValues.get(currency)+value);
-                    }
-                    DocumentReference updateRef = db.collection("users").document(uid);
-                    updateRef
-                            .update(newValues)
-                            .addOnSuccessListener(new OnSuccessListener<Void>() {
-                                @Override
-                                public void onSuccess(Void aVoid) {
-                                    for (Marker marker : markersToRemove) {
-                                        map.removeMarker(marker);
-                                        markers.remove(marker);
-                                        String currency = markerDetails.get(marker)[0];
-                                        double value = Double.parseDouble(markerDetails.get(marker)[1]);
-                                        Snackbar.make(findViewById(R.id.toolbar), "Collected " + value
-                                                + " " + currency, Snackbar.LENGTH_LONG).show();
-                                        System.out.println("Removed marker " + marker.getTitle());
-                                    }
-                                }
-                            })
-                            .addOnFailureListener(new OnFailureListener() {
-                                @Override
-                                public void onFailure(@NonNull Exception e) {
-                                    System.out.println("Failed to update document with new coin " +
-                                            "values with exception "+task.getException());
-                                }
-                            });
-                } else {
-                    System.out.println("Tried to update coins but user does not exist");
-                }
-            } else {
-                System.out.println("Task failed with exception "+task.getException());
-            }
-        });
+        // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
+        // to the database and JSONObject
+        new CoinsUpdateTask(this, coinsUpdateLock, db, uid, markersToRemove, settings).run();
     }
 
     private void setToUpdateAtMidnight() {
@@ -509,7 +435,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
     }
 
-    private void checkFirstTimeUser(){
+    private void checkFirstTimeUser() {
         DocumentReference docRef = db.collection("users").document(uid);
         docRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
@@ -526,13 +452,13 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         });
     }
 
-    private void setFirstTimeUser(){
-        Map<String,Object> user_defaults = new HashMap<>();
-        user_defaults.put("DOLR",0.0);
-        user_defaults.put("GOLD",0.0);
-        user_defaults.put("PENY",0.0);
-        user_defaults.put("QUID",0.0);
-        user_defaults.put("SHIL",0.0);
+    private void setFirstTimeUser() {
+        Map<String, Object> user_defaults = new HashMap<>();
+        user_defaults.put("DOLR", 0.0);
+        user_defaults.put("GOLD", 0.0);
+        user_defaults.put("PENY", 0.0);
+        user_defaults.put("QUID", 0.0);
+        user_defaults.put("SHIL", 0.0);
         db.collection("users").document(uid)
                 .set(user_defaults)
                 .addOnSuccessListener(aVoid -> System.out.println("SUCCESSFULLY ADDED USER TO DATABASE"))
@@ -611,7 +537,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
     }
 
-    private void logout(){
+    private void logout() {
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("uid", "");
         editor.apply();
@@ -664,6 +590,51 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 e.printStackTrace();
             }
         }
+    }
+
+    @Override
+    public void onCoinsUpdated(HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
+        ArrayList<String[]> coinsCollected = new ArrayList<>();
+        for (Marker marker : markerDetails.keySet()) {
+            map.removeMarker(marker);
+            markers.remove(marker);
+            coinsCollected.add(markerDetails.get(marker));
+            System.out.println("Removed marker " + marker.getTitle());
+        }
+        if (coinsCollected.size() == 1) {
+            String currency = coinsCollected.get(0)[0];
+            String value = coinsCollected.get(0)[1];
+            Snackbar.make(findViewById(R.id.toolbar), "Collected " + value
+                    + " " + currency, Snackbar.LENGTH_LONG).show();
+        } else {
+            StringBuilder messageBuilder = new StringBuilder();
+            messageBuilder.append("Collected ");
+            for (int i = 0; i < coinsCollected.size() - 1; i++) {
+                String currency = coinsCollected.get(i)[0];
+                String value = coinsCollected.get(i)[1];
+                messageBuilder.append(value);
+                messageBuilder.append(" ");
+                messageBuilder.append(currency);
+                // Typically we only add the comma when we are listing them, which will only occur if
+                // there is more than 2 coins collected at once
+                if (coinsCollected.size() > 2) {
+                    messageBuilder.append(", ");
+                } else {
+                    messageBuilder.append(" ");
+                }
+            }
+            String currency = coinsCollected.get(coinsCollected.size() - 1)[0];
+            String value = coinsCollected.get(coinsCollected.size() - 1)[1];
+            messageBuilder.append("and ");
+            messageBuilder.append(value);
+            messageBuilder.append(" ");
+            messageBuilder.append(currency);
+            Snackbar.make(findViewById(R.id.toolbar), messageBuilder.toString(), Snackbar.LENGTH_LONG).show();
+        }
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("map", mapJSON.toString());
+        editor.apply();
+        coinsUpdateLock.unlock();
     }
 }
 
@@ -737,6 +708,118 @@ class DownloadCompleteRunner {
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
         }
+    }
+}
+
+interface CoinsUpdatedCallback {
+    void onCoinsUpdated(HashMap<Marker, String[]> markerDetails, JSONObject mapJSON);
+}
+
+class CoinsUpdateTask implements Runnable {
+    private CoinsUpdatedCallback context;
+    private ReentrantLock coinsUpdateLock;
+    private FirebaseFirestore db;
+    private String uid;
+    private ArrayList<Marker> markersToRemove;
+    private SharedPreferences settings;
+
+    CoinsUpdateTask(CoinsUpdatedCallback context, ReentrantLock coinsUpdateLock, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+        super();
+        this.context = context;
+        this.coinsUpdateLock = coinsUpdateLock;
+        this.db = db;
+        this.uid = uid;
+        this.markersToRemove = markersToRemove;
+        this.settings = settings;
+    }
+
+    public void run() {
+
+        coinsUpdateLock.lock();
+
+        String mapJSONString = settings.getString("map", "");
+        HashMap<Marker, String[]> markerDetails = new HashMap<>();
+        ArrayList<String> currencies = new ArrayList<>();
+        JSONObject mapJSON = new JSONObject();
+
+        try {
+            mapJSON = new JSONObject(mapJSONString);
+            JSONArray markersJSON = mapJSON.getJSONArray("features");
+            int removed = 0;
+            int i = 0;
+            while (i < markersJSON.length() && removed < markersToRemove.size()) {
+                JSONObject markerJSON = markersJSON.getJSONObject(i);
+                for (Marker marker : markersToRemove) {
+                    if (marker.getTitle().equals(markerJSON.getJSONObject("properties").getString("id"))) {
+                        String currency = markerJSON.getJSONObject("properties").getString("currency");
+                        String value = markerJSON.getJSONObject("properties").getString("value");
+                        markerDetails.put(marker, new String[]{
+                                currency,
+                                value
+                        });
+                        if (!currencies.contains(currency)) {
+                            currencies.add(currency);
+                        }
+                        markersJSON.remove(i);
+                        i--;
+                        removed++;
+
+                        break;
+                    }
+                }
+                i++;
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        if (markerDetails.size()>0){
+            final JSONObject mapJSONFinal = mapJSON;
+            DocumentReference getRef = db.collection("users").document(uid);
+            getRef.get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (document.exists()) {
+                        Map<String, Object> newValues = new HashMap<>();
+                        for (String currency : currencies) {
+                            newValues.put(currency, document.getDouble(currency));
+                        }
+                        for (Marker marker : markerDetails.keySet()) {
+                            String currency = markerDetails.get(marker)[0];
+                            Double value = Double.parseDouble(markerDetails.get(marker)[1]);
+                            newValues.put(currency, (double) newValues.get(currency) + value);
+                        }
+                        DocumentReference updateRef = db.collection("users").document(uid);
+                        updateRef
+                                .update(newValues)
+                                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                    @Override
+                                    public void onSuccess(Void aVoid) {
+                                        CoinsUpdateCompleteRunner.coinsUpdateComplete(context,markerDetails,mapJSONFinal);
+                                    }
+                                })
+                                .addOnFailureListener(new OnFailureListener() {
+                                    @Override
+                                    public void onFailure(@NonNull Exception e) {
+                                        System.out.println("Failed to update document with new coin " +
+                                                "values with exception " + task.getException());
+                                    }
+                                });
+                    } else {
+                        System.out.println("Tried to update coins but user does not exist");
+                    }
+                } else {
+                    System.out.println("Task failed with exception " + task.getException());
+                }
+            });
+        }
+    }
+}
+
+class CoinsUpdateCompleteRunner {
+
+    static void coinsUpdateComplete(CoinsUpdatedCallback context, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
+        context.onCoinsUpdated(markerDetails, mapJSON);
     }
 }
 
