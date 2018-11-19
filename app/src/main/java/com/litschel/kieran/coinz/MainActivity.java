@@ -250,6 +250,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private void removeMarkers(ArrayList<Marker> markersToRemove) {
         String mapJSONString = settings.getString("map", "");
         HashMap<Marker, String[]> markerDetails = new HashMap<>();
+        ArrayList<String> currencies = new ArrayList<>();
 
         try {
             JSONObject mapJSON = new JSONObject(mapJSONString);
@@ -260,10 +261,15 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 JSONObject markerJSON = markersJSON.getJSONObject(i);
                 for (Marker marker : markersToRemove) {
                     if (marker.getTitle().equals(markerJSON.getJSONObject("properties").getString("id"))) {
+                        String currency = markerJSON.getJSONObject("properties").getString("currency");
+                        String value = markerJSON.getJSONObject("properties").getString("value");
                         markerDetails.put(marker, new String[]{
-                                markerJSON.getJSONObject("properties").getString("currency"),
-                                markerJSON.getJSONObject("properties").getString("value")
+                                currency,
+                                value
                         });
+                        if (!currencies.contains(currency)){
+                            currencies.add(currency);
+                        }
                         markersJSON.remove(i);
                         i--;
                         removed++;
@@ -280,15 +286,51 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             e.printStackTrace();
         }
 
-        for (Marker marker : markersToRemove) {
-            map.removeMarker(marker);
-            markers.remove(marker);
-            String currency = markerDetails.get(marker)[0];
-            float value = Integer.parseInt(markerDetails.get(marker)[1]);
-            Snackbar.make(findViewById(R.id.toolbar), "Collected " + value
-                    + " " + currency, Snackbar.LENGTH_LONG).show();
-            System.out.println("Removed marker " + marker.getTitle());
-        }
+        DocumentReference getRef = db.collection("users").document(uid);
+        getRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot document = task.getResult();
+                if (document.exists()) {
+                    Map<String,Object> newValues = new HashMap<>();
+                    for (String currency : currencies){
+                        newValues.put(currency,document.getDouble(currency));
+                    }
+                    for (Marker marker : markerDetails.keySet()){
+                        String currency = markerDetails.get(marker)[0];
+                        Double value = Double.parseDouble(markerDetails.get(marker)[1]);
+                        newValues.put(currency,(double) newValues.get(currency)+value);
+                    }
+                    DocumentReference updateRef = db.collection("users").document(uid);
+                    updateRef
+                            .update(newValues)
+                            .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                @Override
+                                public void onSuccess(Void aVoid) {
+                                    for (Marker marker : markersToRemove) {
+                                        map.removeMarker(marker);
+                                        markers.remove(marker);
+                                        String currency = markerDetails.get(marker)[0];
+                                        double value = Double.parseDouble(markerDetails.get(marker)[1]);
+                                        Snackbar.make(findViewById(R.id.toolbar), "Collected " + value
+                                                + " " + currency, Snackbar.LENGTH_LONG).show();
+                                        System.out.println("Removed marker " + marker.getTitle());
+                                    }
+                                }
+                            })
+                            .addOnFailureListener(new OnFailureListener() {
+                                @Override
+                                public void onFailure(@NonNull Exception e) {
+                                    System.out.println("Failed to update document with new coin " +
+                                            "values with exception "+task.getException());
+                                }
+                            });
+                } else {
+                    System.out.println("Tried to update coins but user does not exist");
+                }
+            } else {
+                System.out.println("Task failed with exception "+task.getException());
+            }
+        });
     }
 
     private void setToUpdateAtMidnight() {
