@@ -96,7 +96,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.StampedLock;
 
-public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapDownloadedCallback, CoinsUpdatedCallback {
+public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, CoinsUpdatedCallback {
 
     private MapView mapView;
     private MapboxMap map;
@@ -114,8 +114,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private LocationManager locationManager;
     private Context mContext;
     private FirebaseFirestore db;
-    private StampedLock coinsUpdateLock = new StampedLock();
-    private ExecutorService coinsUpdateExecutor = Executors.newFixedThreadPool(1);
+    private StampedLock mapUpdateLock = new StampedLock();
+    private ExecutorService mapUpdateExecutor = Executors.newFixedThreadPool(1);
 
 
     @Override
@@ -200,7 +200,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
 
-        System.out.println("GOT UID OF " + uid);
+        System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
 
         db = FirebaseFirestore.getInstance();
 
@@ -209,7 +209,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
 
         if (justStarted && (!settings.getString("map", "").equals(""))) {
-            updateMarkers();
+            System.out.println("INITIALIZE LOCATION ENGINE WAITING FOR LOCK");
+            long lockStamp = mapUpdateLock.writeLock();
+            System.out.println("INITIALIZE LOCATION ENGINE ACQUIRED LOCK");
+            updateMarkers(lockStamp);
             justStarted = false;
         }
 
@@ -264,7 +267,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
         // Use an executor to avoid having to create new threads which is expensive
-        coinsUpdateExecutor.submit(new CoinsUpdateTask(this, coinsUpdateLock, db, uid, markersToRemove, settings));
+        mapUpdateExecutor.submit(new CoinsUpdateTask(this, mapUpdateLock, db, uid, markersToRemove, settings));
     }
 
     private void setToUpdateAtMidnight() {
@@ -272,7 +275,10 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             public void run() {
                 myTimerTaskHandler.post(new Runnable() {
                     public void run() {
-                        updateMap();
+                        System.out.println("SET TO UPDATE AT MIDNIGHT WAITING FOR LOCK");
+                        long lockStamp = mapUpdateLock.writeLock();
+                        System.out.println("SET TO UPDATE AT MIDNIGHT ACQUIRED LOCK");
+                        updateMap(lockStamp);
                         setToUpdateAtMidnight();
                     }
                 });
@@ -288,22 +294,19 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
     private void checkForMapUpdate() {
         if (settings != null) {
-            LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
-
-            if (lastDownloadDate.isBefore(LocalDate.now())) {
-                updateMap();
-            } else {
-                System.out.println("MAP IS UP TO DATE");
-            }
+            mapUpdateExecutor.submit(new MapUpdateTask(this, mapUpdateLock, settings));
         }
     }
 
-    public void updateMap() {
-        map.clear(); // Clear the map before updating it to ensure that if there's no internet user can't play with old map
+    @Override
+    public void updateMap(long lockStamp) {
+        if (!settings.getString("map","").equals("")){
+            map.clear(); // Clear the map before updating it to ensure that if there's no internet user can't play with old map
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("map", "");
+            editor.apply();
+        }
         LocalDate today = LocalDate.now();
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("map", "");
-        editor.apply();
         String year = String.valueOf(today.getYear());
         String month = String.valueOf(today.getMonthValue());
         if (month.length() == 1) {
@@ -320,7 +323,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                     .show();
             setToUpdateOnInternet();
         }
-        new DownloadMapTask(this).execute(url);
+        new DownloadMapTask(this, lockStamp).execute(url);
     }
 
     private void setToUpdateOnInternet() {
@@ -328,7 +331,18 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             public void run() {
                 myTimerTaskHandler.post(() -> {
                     if (isNetworkAvailable()) {
-                        updateMap();
+                        System.out.println("SET TO UPDATE ON INTERNET WAITING FOR LOCK");
+                        long lockStamp = mapUpdateLock.writeLock();
+                        System.out.println("SET TO UPDATE ON INTERNET ACQUIRED LOCK");
+                        LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
+                        // Should check map hasn't been updated by other means in time it took to acquire lock
+                        if (lastDownloadDate.isBefore(LocalDate.now())) {
+                            updateMap(lockStamp);
+                        } else {
+                            mapUpdateLock.unlockWrite(lockStamp);
+                            System.out.println("SET TO UPDATE ON INTERNET RELEASED LOCK");
+                            System.out.println("MAP IS UP TO DATE");
+                        }
                     } else {
                         setToUpdateOnInternet();
                     }
@@ -554,26 +568,22 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     }
 
     @Override
-    public void onMapDownloaded(String mapJSONString) {
+    public void onMapDownloaded(String mapJSONString, long lockStamp) {
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("map", mapJSONString);
         editor.putString("lastDownloadDate", LocalDate.now().toString());
         editor.apply();
         System.out.println("SUCCEEDED IN DOWNLOADING MAP");
-        updateMarkers(mapJSONString);
+        updateMarkers(mapJSONString, lockStamp);
     }
 
-    public void updateMarkers() {
+    public void updateMarkers(long lockStamp) {
         String mapJSONString = settings.getString("map", "");
         map.clear();
-        updateMarkers(mapJSONString);
+        updateMarkers(mapJSONString, lockStamp);
     }
 
-    public void updateMarkers(String mapJSONString) {
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("map", mapJSONString);
-        editor.putString("lastDownloadDate", LocalDate.now().toString());
-        editor.apply();
+    public void updateMarkers(String mapJSONString, long lockStamp) {
         markers = new ArrayList<>();
         if (!mapJSONString.equals("")) {
             try {
@@ -598,6 +608,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 e.printStackTrace();
             }
         }
+        mapUpdateLock.unlockWrite(lockStamp);
+        System.out.println("UPDATE MARKERS RELEASED LOCK");
     }
 
     @Override
@@ -642,20 +654,57 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("map", mapJSON.toString());
         editor.apply();
-        coinsUpdateLock.unlockWrite(lockStamp);
+        mapUpdateLock.unlockWrite(lockStamp);
+        System.out.println("ON COINS UPDATED RELEASED LOCK");
+    }
+}
+
+interface MapUpdateCallback {
+    void updateMap(long lockStamp);
+}
+
+class MapUpdateTask implements Runnable {
+
+    private StampedLock mapUpdateLock;
+    private MapUpdateCallback context;
+    private SharedPreferences settings;
+
+    MapUpdateTask(MapUpdateCallback context, StampedLock mapUpdateLock, SharedPreferences settings) {
+        this.mapUpdateLock = mapUpdateLock;
+        this.context = context;
+        this.settings = settings;
+    }
+
+    @Override
+    public void run() {
+        System.out.println("MAP UPDATE TASK WAITING FOR LOCK");
+        long lockStamp = mapUpdateLock.writeLock();
+        System.out.println("MAP UPDATE TASK ACQUIRED LOCK");
+
+        LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
+
+        if (lastDownloadDate.isBefore(LocalDate.now())) {
+            context.updateMap(lockStamp);
+        } else {
+            mapUpdateLock.unlockWrite(lockStamp);
+            System.out.println("MAP UPDATE TASK RELEASED LOCK");
+            System.out.println("MAP IS UP TO DATE");
+        }
     }
 }
 
 interface MapDownloadedCallback {
-    void onMapDownloaded(String mapJSONString);
+    void onMapDownloaded(String mapJSONString, long lockStamp);
 }
 
 class DownloadMapTask extends AsyncTask<String, Void, String> {
     private MapDownloadedCallback context;
+    private long lockStamp;
 
-    DownloadMapTask(MapDownloadedCallback context) {
+    DownloadMapTask(MapDownloadedCallback context, long lockStamp) {
         super();
         this.context = context;
+        this.lockStamp = lockStamp;
     }
 
     @Override
@@ -704,15 +753,15 @@ class DownloadMapTask extends AsyncTask<String, Void, String> {
     protected void onPostExecute(String result) {
         System.out.println("Finished processing JSON response");
         super.onPostExecute(result);
-        DownloadCompleteRunner.downloadMapComplete(result, context);
+        DownloadCompleteRunner.downloadMapComplete(result, context, lockStamp);
     }
 }
 
 class DownloadCompleteRunner {
 
-    static void downloadMapComplete(String mapJSONString, MapDownloadedCallback context) {
+    static void downloadMapComplete(String mapJSONString, MapDownloadedCallback context, long lockStamp) {
         if (!(mapJSONString.equals("FAILED"))) {
-            context.onMapDownloaded(mapJSONString);
+            context.onMapDownloaded(mapJSONString, lockStamp);
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
         }
@@ -725,16 +774,16 @@ interface CoinsUpdatedCallback {
 
 class CoinsUpdateTask implements Runnable {
     private CoinsUpdatedCallback context;
-    private StampedLock coinsUpdateLock;
+    private StampedLock mapUpdateLock;
     private FirebaseFirestore db;
     private String uid;
     private ArrayList<Marker> markersToRemove;
     private SharedPreferences settings;
 
-    CoinsUpdateTask(CoinsUpdatedCallback context, StampedLock coinsUpdateLock, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+    CoinsUpdateTask(CoinsUpdatedCallback context, StampedLock mapUpdateLock, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
-        this.coinsUpdateLock = coinsUpdateLock;
+        this.mapUpdateLock = mapUpdateLock;
         this.db = db;
         this.uid = uid;
         this.markersToRemove = markersToRemove;
@@ -742,8 +791,9 @@ class CoinsUpdateTask implements Runnable {
     }
 
     public void run() {
-
-        final long lockStamp = coinsUpdateLock.writeLock();
+        System.out.println("COINS UPDATE TASK WAITING FOR LOCK");
+        final long lockStamp = mapUpdateLock.writeLock();
+        System.out.println("COINS UPDATE TASK ACQUIRED LOCK");
 
         String mapJSONString = settings.getString("map", "");
         HashMap<Marker, String[]> markerDetails = new HashMap<>();
@@ -781,7 +831,7 @@ class CoinsUpdateTask implements Runnable {
             e.printStackTrace();
         }
 
-        if (markerDetails.size()>0){
+        if (markerDetails.size() > 0) {
             final JSONObject mapJSONFinal = mapJSON;
             final DocumentReference docRef = db.collection("users").document(uid);
             // Use transactions as opposed to just querying the database and then writing it as transactions
@@ -800,7 +850,7 @@ class CoinsUpdateTask implements Runnable {
                         Double value = Double.parseDouble(markerDetails.get(marker)[1]);
                         newValues.put(currency, (double) newValues.get(currency) + value);
                     }
-                    transaction.update(docRef,newValues);
+                    transaction.update(docRef, newValues);
 
                     // Success
                     return null;
@@ -818,7 +868,8 @@ class CoinsUpdateTask implements Runnable {
                 }
             });
         } else {
-            coinsUpdateLock.unlockWrite(lockStamp);
+            mapUpdateLock.unlockWrite(lockStamp);
+            System.out.println("COINS UPDATE TASK RELEASED LOCK");
         }
     }
 }
