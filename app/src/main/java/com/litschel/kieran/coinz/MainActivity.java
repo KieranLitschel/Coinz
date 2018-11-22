@@ -294,6 +294,18 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
     private void checkForMapUpdate() {
         if (settings != null) {
+            System.out.println("CHECKING IF MAP UPDATE REQUIRED");
+
+            // Not the ideal way to clear the map as may be executed multiple times, but there was a strange bug with mapbox where
+            // if I tried to remove a marker from the map on another thread the thread would just enter the method and never return
+            // from it, without even throwing an exception. Despite clearling the map outside the thread, it is necessary to delete
+            // the markers on a seperate thread to avoid intefering with collecting them
+
+            LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
+            if (lastDownloadDate.isBefore(LocalDate.now())) {
+                map.clear();
+            }
+
             mapUpdateExecutor.submit(new MapUpdateTask(this, mapUpdateLock, settings));
         }
     }
@@ -301,7 +313,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @Override
     public void updateMap(long lockStamp) {
         if (!settings.getString("map","").equals("")){
-            map.clear(); // Clear the map before updating it to ensure that if there's no internet user can't play with old map
+            markers = new ArrayList<>();
             SharedPreferences.Editor editor = settings.edit();
             editor.putString("map", "");
             editor.apply();
@@ -411,8 +423,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         mapView.onResume();
-        checkForMapUpdate();
         setToUpdateAtMidnight();
+        checkForMapUpdate();
     }
 
     private void signIn() {
@@ -670,6 +682,7 @@ class MapUpdateTask implements Runnable {
     private SharedPreferences settings;
 
     MapUpdateTask(MapUpdateCallback context, StampedLock mapUpdateLock, SharedPreferences settings) {
+        super();
         this.mapUpdateLock = mapUpdateLock;
         this.context = context;
         this.settings = settings;
