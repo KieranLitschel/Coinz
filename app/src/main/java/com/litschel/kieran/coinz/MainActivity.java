@@ -1,7 +1,10 @@
 package com.litschel.kieran.coinz;
 
 import android.Manifest;
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -21,6 +24,7 @@ import android.support.annotation.DrawableRes;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
@@ -92,11 +96,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.StampedLock;
+import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
 
-public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, CoinsUpdatedCallback {
+public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, CoinsUpdatedCallback, NoInternetDialogCallback {
 
     private MapView mapView;
     private MapboxMap map;
@@ -120,7 +123,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         justStarted = true;
+        mapUpdateExecutor = Executors.newFixedThreadPool(1);
 
         super.onCreate(savedInstanceState);
 
@@ -137,8 +142,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         }
 
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
         Mapbox.getInstance(this, getString(R.string.mapbox_access_token));
 
@@ -149,6 +152,18 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             map = mapboxMap;
             enableLocationPlugin();
         });
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
+        uid = settings.getString("uid", "");
+
+        System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
+
+        db = FirebaseFirestore.getInstance();
+
+        signIn();
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -196,17 +211,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 .include(new LatLng(55.942617, -3.184319))
                 .build();
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
-
-        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
-        uid = settings.getString("uid", "");
-
-        System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
-
-        db = FirebaseFirestore.getInstance();
-
-        if (uid.equals("")) {
-            signIn();
-        }
 
         if (justStarted && (!settings.getString("map", "").equals(""))) {
             System.out.println("INITIALIZE LOCATION ENGINE WAITING FOR LOCK");
@@ -302,7 +306,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             // the markers on a seperate thread to avoid intefering with collecting them
 
             LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
-            if (lastDownloadDate.isBefore(LocalDate.now())) {
+            if (lastDownloadDate.isBefore(LocalDate.now()) && map != null) {
                 map.clear();
             }
 
@@ -414,30 +418,39 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         if (locationPlugin != null) {
             locationPlugin.onStart();
         }
+        if (mapUpdateExecutor.isShutdown()){
+            mapUpdateExecutor = Executors.newFixedThreadPool(1);
+        }
         mapView.onStart();
+        myTimer = new Timer();
+        myTimerTaskHandler = new Handler();
+        setToUpdateAtMidnight();
+        checkForMapUpdate();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        mapUpdateExecutor = Executors.newFixedThreadPool(1);
-        myTimer = new Timer();
-        myTimerTaskHandler = new Handler();
         mapView.onResume();
-        setToUpdateAtMidnight();
-        checkForMapUpdate();
     }
 
     private void signIn() {
-        List<AuthUI.IdpConfig> providers = Arrays.asList(
-                new AuthUI.IdpConfig.EmailBuilder().build());
+        if (uid.equals("")){
+            if (isNetworkAvailable()){
+                List<AuthUI.IdpConfig> providers = Arrays.asList(
+                        new AuthUI.IdpConfig.EmailBuilder().build());
 
-        startActivityForResult(
-                AuthUI.getInstance()
-                        .createSignInIntentBuilder()
-                        .setAvailableProviders(providers)
-                        .build(),
-                RC_SIGN_IN);
+                startActivityForResult(
+                        AuthUI.getInstance()
+                                .createSignInIntentBuilder()
+                                .setAvailableProviders(providers)
+                                .build(),
+                        RC_SIGN_IN);
+            } else {
+                DialogFragment newFragment = new NoInternetDialogFragment();
+                newFragment.show(getSupportFragmentManager(), "no_internet_dialog");
+            }
+        }
     }
 
     @Override
@@ -504,9 +517,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     protected void onPause() {
         super.onPause();
         mapView.onPause();
-        myTimer.cancel();
-        myTimer.purge();
-        mapUpdateExecutor.shutdown();
     }
 
     @Override
@@ -519,6 +529,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             locationPlugin.onStop();
         }
         mapView.onStop();
+        myTimer.cancel();
+        myTimer.purge();
+        mapUpdateExecutor.shutdown();
     }
 
     @Override
@@ -540,6 +553,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         if (locationEngine != null) {
             locationEngine.deactivate();
         }
+        mapUpdateExecutor.shutdownNow();
     }
 
     @Override
@@ -670,6 +684,17 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         editor.apply();
         mapUpdateLock.unlockWrite(lockStamp);
         System.out.println("ON COINS UPDATED RELEASED LOCK");
+    }
+
+    @Override
+    public void tryInternetAgain() {
+        signIn();
+    }
+
+    @Override
+    public void closeApp() {
+        finish();
+        System.exit(0);
     }
 }
 

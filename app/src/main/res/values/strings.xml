@@ -4,4 +4,7 @@
     <string name="action_reset_view">Reset View</string>
     <string name="mapbox_access_token">pk.eyJ1Ijoia2llcmFubGl0c2NoZWwiLCJhIjoiY2ptaHZpdGJ0MXA1ZjNrbzl6amVkZnNidiJ9.74MEj4wFmMf-uYn82RazpQ</string>
     <string name="logout">Logout</string>
+    <string name="close_app">Close app</string>
+    <string name="try_again">Try again</string>
+    <string name="no_login_dialog_message">You must be logged in to the app to use it with no internet. Please connect to the internet and log in.</string>
 </resources>
