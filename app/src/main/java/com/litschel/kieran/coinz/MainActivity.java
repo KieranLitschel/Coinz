@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     private Context mContext;
     private FirebaseFirestore db;
     private StampedLock mapUpdateLock = new StampedLock();
-    private ExecutorService mapUpdateExecutor = Executors.newFixedThreadPool(1);
+    private ExecutorService mapUpdateExecutor;
 
 
     @Override
@@ -420,6 +420,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     @Override
     protected void onResume() {
         super.onResume();
+        mapUpdateExecutor = Executors.newFixedThreadPool(1);
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         mapView.onResume();
@@ -505,6 +506,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
         mapView.onPause();
         myTimer.cancel();
         myTimer.purge();
+        mapUpdateExecutor.shutdown();
     }
 
     @Override
