@@ -307,7 +307,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
             LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
             if (lastDownloadDate.isBefore(LocalDate.now()) && map != null) {
+                System.out.println("CLEARING MAP");
                 map.clear();
+                System.out.println("CLEARED MAP!");
             }
 
             mapUpdateExecutor.submit(new MapUpdateTask(this, mapUpdateLock, settings));
@@ -339,32 +341,26 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                     .show();
             setToUpdateOnInternet();
         }
-        new DownloadMapTask(this, lockStamp).execute(url);
+        new DownloadMapTask(this, mapUpdateLock, lockStamp).execute(url);
     }
 
     private void setToUpdateOnInternet() {
+        System.out.println("CREATED TIMER TASK");
         TimerTask mTtInternet = new TimerTask() {
             public void run() {
                 myTimerTaskHandler.post(() -> {
+                    System.out.println("TIMER TASK TRIGGERED");
                     if (isNetworkAvailable()) {
-                        System.out.println("SET TO UPDATE ON INTERNET WAITING FOR LOCK");
-                        long lockStamp = mapUpdateLock.writeLock();
-                        System.out.println("SET TO UPDATE ON INTERNET ACQUIRED LOCK");
-                        LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
-                        // Should check map hasn't been updated by other means in time it took to acquire lock
-                        if (lastDownloadDate.isBefore(LocalDate.now())) {
-                            updateMap(lockStamp);
-                        } else {
-                            mapUpdateLock.unlockWrite(lockStamp);
-                            System.out.println("SET TO UPDATE ON INTERNET RELEASED LOCK");
-                            System.out.println("MAP IS UP TO DATE");
-                        }
+                        System.out.println("TIMER TASK FOUND INTERNET");
+                        checkForMapUpdate();
                     } else {
+                        System.out.println("TIMER TASK FOUND NO INTERNET");
                         setToUpdateOnInternet();
                     }
                 });
             }
         };
+        System.out.println("TIMER TASK SCHEDULED");
         myTimer.schedule(mTtInternet, 5000);
     }
 
@@ -741,11 +737,13 @@ interface MapDownloadedCallback {
 class DownloadMapTask extends AsyncTask<String, Void, String> {
     private MapDownloadedCallback context;
     private long lockStamp;
+    private StampedLock mapUpdateLock;
 
-    DownloadMapTask(MapDownloadedCallback context, long lockStamp) {
+    DownloadMapTask(MapDownloadedCallback context, StampedLock mapUpdateLock, long lockStamp) {
         super();
         this.context = context;
         this.lockStamp = lockStamp;
+        this.mapUpdateLock = mapUpdateLock;
     }
 
     @Override
@@ -753,6 +751,7 @@ class DownloadMapTask extends AsyncTask<String, Void, String> {
         try {
             return loadFileFromNetwork(urls[0]);
         } catch (IOException e) {
+            mapUpdateLock.unlockWrite(lockStamp);
             return "FAILED";
         }
     }
@@ -805,6 +804,7 @@ class DownloadCompleteRunner {
             context.onMapDownloaded(mapJSONString, lockStamp);
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
+
         }
     }
 }
