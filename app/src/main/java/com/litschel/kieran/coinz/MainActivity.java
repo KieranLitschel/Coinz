@@ -285,6 +285,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                         System.out.println("SET TO UPDATE AT MIDNIGHT WAITING FOR LOCK");
                         long lockStamp = mapUpdateLock.writeLock();
                         System.out.println("SET TO UPDATE AT MIDNIGHT ACQUIRED LOCK");
+                        map.clear();
                         updateMap(lockStamp);
                         setToUpdateAtMidnight();
                     }
