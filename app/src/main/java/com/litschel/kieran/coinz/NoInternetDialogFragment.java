@@ -4,7 +4,6 @@ package com.litschel.kieran.coinz;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 
@@ -24,17 +23,12 @@ public class NoInternetDialogFragment extends DialogFragment{
         super.onAttach(context);
         // Verify that the host activity implements the callback interface
         try {
-            // Instantiate the NoticeDialogListener so we can send events to the host
+            // Instantiate the NoInternetDialogCallback so we can send events to the host
             mListener = (NoInternetDialogCallback) context;
         } catch (ClassCastException e) {
             // The activity doesn't implement the interface, throw exception
             throw new ClassCastException("Activity must implement NoInternetDialogCallback");
         }
-    }
-
-    @Override
-    public void onDismiss(DialogInterface dialog){
-        mListener.tryInternetAgain();
     }
 
 

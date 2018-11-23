@@ -125,6 +125,8 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     protected void onCreate(Bundle savedInstanceState) {
 
         justStarted = true;
+        // Need lock to prevent map being written before it is created
+        long lockStamp = mapUpdateLock.writeLock();
         mapUpdateExecutor = Executors.newFixedThreadPool(1);
 
         super.onCreate(savedInstanceState);
@@ -150,6 +152,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
 
         mapView.getMapAsync(mapboxMap -> {
             map = mapboxMap;
+            mapUpdateLock.unlockWrite(lockStamp);
             enableLocationPlugin();
         });
 
@@ -447,8 +450,9 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                                 .build(),
                         RC_SIGN_IN);
             } else {
-                DialogFragment newFragment = new NoInternetDialogFragment();
-                newFragment.show(getSupportFragmentManager(), "no_internet_dialog");
+                DialogFragment noInternetFragment = new NoInternetDialogFragment();
+                noInternetFragment.setCancelable(false);
+                noInternetFragment.show(getSupportFragmentManager(), "no_internet_dialog");
             }
         }
     }
