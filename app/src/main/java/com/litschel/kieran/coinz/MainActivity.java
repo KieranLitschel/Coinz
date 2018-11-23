@@ -282,11 +282,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
             public void run() {
                 myTimerTaskHandler.post(new Runnable() {
                     public void run() {
-                        System.out.println("SET TO UPDATE AT MIDNIGHT WAITING FOR LOCK");
-                        long lockStamp = mapUpdateLock.writeLock();
-                        System.out.println("SET TO UPDATE AT MIDNIGHT ACQUIRED LOCK");
-                        map.clear();
-                        updateMap(lockStamp);
+                        checkForMapUpdate();
                         setToUpdateAtMidnight();
                     }
                 });
