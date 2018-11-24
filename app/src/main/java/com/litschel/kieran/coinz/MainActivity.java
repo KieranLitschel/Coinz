@@ -1,57 +1,49 @@
 package com.litschel.kieran.coinz;
 
 import android.Manifest;
-import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.drawable.Drawable;
+import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.ColorInt;
-import android.support.annotation.DrawableRes;
+import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.content.res.ResourcesCompat;
-import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
-import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Transaction;
+import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
+import com.mapbox.android.core.location.LocationEngine;
+import com.mapbox.android.core.location.LocationEngineListener;
+import com.mapbox.android.core.location.LocationEnginePriority;
+import com.mapbox.android.core.location.LocationEngineProvider;
+import com.mapbox.android.core.permissions.PermissionsListener;
+import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
-import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.MarkerOptions;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
@@ -60,30 +52,13 @@ import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
-
-import android.location.Location;
-
-import android.support.annotation.NonNull;
-
 import com.mapbox.mapboxsdk.plugins.locationlayer.LocationLayerPlugin;
 import com.mapbox.mapboxsdk.plugins.locationlayer.modes.RenderMode;
-import com.mapbox.android.core.location.LocationEngine;
-import com.mapbox.android.core.location.LocationEngineListener;
-import com.mapbox.android.core.location.LocationEnginePriority;
-import com.mapbox.android.core.location.LocationEngineProvider;
-import com.mapbox.android.core.permissions.PermissionsListener;
-import com.mapbox.android.core.permissions.PermissionsManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -97,7 +72,6 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.StampedLock;
-import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
 
 public class MainActivity extends AppCompatActivity implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, CoinsUpdatedCallback, NoInternetDialogCallback {
 
@@ -241,7 +215,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 ArrayList<Marker> markersToRemove = new ArrayList<>();
                 for (Marker marker : markers) {
                     LatLng markerPos = marker.getPosition();
-                    if (DistanceCalculator.distance(latitude, longitude,
+                    if (ThirdPartyMethods.distance(latitude, longitude,
                             markerPos.getLatitude(), markerPos.getLongitude(), "K") * 1000 <= 25) {
                         markersToRemove.add(marker);
                     }
@@ -617,7 +591,7 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
                 for (int i = 0; i < markersJSON.length(); i++) {
                     JSONObject markerJSON = markersJSON.getJSONObject(i);
                     JSONArray pos = markerJSON.getJSONObject("geometry").getJSONArray("coordinates");
-                    Icon icon = Methods.drawableToIcon(this, R.drawable.marker_icon,
+                    Icon icon = ThirdPartyMethods.drawableToIcon(this, R.drawable.marker_icon,
                             Color.parseColor(markerJSON.getJSONObject("properties").getString("marker-color")));
                     MarkerOptions markerOption = new MarkerOptions()
                             .position(new LatLng(Double.parseDouble(pos.getString(1)),
@@ -692,120 +666,6 @@ public class MainActivity extends AppCompatActivity implements LocationEngineLis
     public void closeApp() {
         finish();
         System.exit(0);
-    }
-}
-
-interface MapUpdateCallback {
-    void updateMap(long lockStamp);
-}
-
-class MapUpdateTask implements Runnable {
-
-    private StampedLock mapUpdateLock;
-    private MapUpdateCallback context;
-    private SharedPreferences settings;
-
-    MapUpdateTask(MapUpdateCallback context, StampedLock mapUpdateLock, SharedPreferences settings) {
-        super();
-        this.mapUpdateLock = mapUpdateLock;
-        this.context = context;
-        this.settings = settings;
-    }
-
-    @Override
-    public void run() {
-        System.out.println("MAP UPDATE TASK WAITING FOR LOCK");
-        long lockStamp = mapUpdateLock.writeLock();
-        System.out.println("MAP UPDATE TASK ACQUIRED LOCK");
-
-        LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
-
-        if (lastDownloadDate.isBefore(LocalDate.now())) {
-            context.updateMap(lockStamp);
-        } else {
-            mapUpdateLock.unlockWrite(lockStamp);
-            System.out.println("MAP UPDATE TASK RELEASED LOCK");
-            System.out.println("MAP IS UP TO DATE");
-        }
-    }
-}
-
-interface MapDownloadedCallback {
-    void onMapDownloaded(String mapJSONString, long lockStamp);
-}
-
-class DownloadMapTask extends AsyncTask<String, Void, String> {
-    private MapDownloadedCallback context;
-    private long lockStamp;
-    private StampedLock mapUpdateLock;
-
-    DownloadMapTask(MapDownloadedCallback context, StampedLock mapUpdateLock, long lockStamp) {
-        super();
-        this.context = context;
-        this.lockStamp = lockStamp;
-        this.mapUpdateLock = mapUpdateLock;
-    }
-
-    @Override
-    protected String doInBackground(String... urls) {
-        try {
-            return loadFileFromNetwork(urls[0]);
-        } catch (IOException e) {
-            mapUpdateLock.unlockWrite(lockStamp);
-            return "FAILED";
-        }
-    }
-
-    private String loadFileFromNetwork(String urlString) throws IOException {
-        return readStream(downloadUrl(new URL(urlString)));
-    }
-
-    private InputStream downloadUrl(URL url) throws IOException {
-        System.out.println("Making GET request to JSON server");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setReadTimeout(10000); // milliseconds
-        conn.setConnectTimeout(15000); // milliseconds
-        conn.setRequestMethod("GET");
-        conn.setDoInput(true);
-        conn.connect();
-        System.out.println("Got response from JSON server");
-        return conn.getInputStream();
-    }
-
-    @NonNull
-    private String readStream(InputStream stream)
-            throws IOException {
-        // Read input from stream, build result as a string
-        System.out.println("Started processing JSON response");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-        StringBuilder result = new StringBuilder();
-        String line;
-        line = reader.readLine();
-        result.append(line);
-        while ((line = reader.readLine()) != null) {
-            result.append("\n");
-            result.append(line);
-        }
-        return result.toString();
-    }
-
-    @Override
-    protected void onPostExecute(String result) {
-        System.out.println("Finished processing JSON response");
-        super.onPostExecute(result);
-        DownloadCompleteRunner.downloadMapComplete(result, context, lockStamp);
-    }
-}
-
-class DownloadCompleteRunner {
-
-    static void downloadMapComplete(String mapJSONString, MapDownloadedCallback context, long lockStamp) {
-        if (!(mapJSONString.equals("FAILED"))) {
-            context.onMapDownloaded(mapJSONString, lockStamp);
-        } else {
-            System.out.println("FAILED TO DOWNLOAD MAP");
-
-        }
     }
 }
 
@@ -912,79 +772,5 @@ class CoinsUpdateTask implements Runnable {
             mapUpdateLock.unlockWrite(lockStamp);
             System.out.println("COINS UPDATE TASK RELEASED LOCK");
         }
-    }
-}
-
-class Methods {
-    // I found this method here https://stackoverflow.com/questions/37805379/mapbox-for-android-changing-color-of-a-markers-icon
-    static Icon drawableToIcon(@NonNull Context context, @DrawableRes int id, @ColorInt int colorRes) {
-        Drawable vectorDrawable = ResourcesCompat.getDrawable(context.getResources(), id, context.getTheme());
-        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
-                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        DrawableCompat.setTint(vectorDrawable, colorRes);
-        vectorDrawable.draw(canvas);
-        return IconFactory.getInstance(context).fromBitmap(bitmap);
-    }
-}
-
-// Found this class for calculating distance between lat and longs here https://www.geodatasource.com/developers/java
-
-class DistanceCalculator {
-    /*::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-    /*::                                                                         :*/
-    /*::  This routine calculates the distance between two points (given the     :*/
-    /*::  latitude/longitude of those points). It is being used to calculate     :*/
-    /*::  the distance between two locations using GeoDataSource (TM) prodducts  :*/
-    /*::                                                                         :*/
-    /*::  Definitions:                                                           :*/
-    /*::    South latitudes are negative, east longitudes are positive           :*/
-    /*::                                                                         :*/
-    /*::  Passed to function:                                                    :*/
-    /*::    lat1, lon1 = Latitude and Longitude of point 1 (in decimal degrees)  :*/
-    /*::    lat2, lon2 = Latitude and Longitude of point 2 (in decimal degrees)  :*/
-    /*::    unit = the unit you desire for results                               :*/
-    /*::           where: 'M' is statute miles (default)                         :*/
-    /*::                  'K' is kilometers                                      :*/
-    /*::                  'N' is nautical miles                                  :*/
-    /*::  Worldwide cities and other features databases with latitude longitude  :*/
-    /*::  are available at https://www.geodatasource.com                          :*/
-    /*::                                                                         :*/
-    /*::  For enquiries, please contact sales@geodatasource.com                  :*/
-    /*::                                                                         :*/
-    /*::  Official Web site: https://www.geodatasource.com                        :*/
-    /*::                                                                         :*/
-    /*::           GeoDataSource.com (C) All Rights Reserved 2017                :*/
-    /*::                                                                         :*/
-    /*::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-
-    public static double distance(double lat1, double lon1, double lat2, double lon2, String unit) {
-        double theta = lon1 - lon2;
-        double dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
-        dist = Math.acos(dist);
-        dist = rad2deg(dist);
-        dist = dist * 60 * 1.1515;
-        if (unit == "K") {
-            dist = dist * 1.609344;
-        } else if (unit == "N") {
-            dist = dist * 0.8684;
-        }
-
-        return (dist);
-    }
-
-    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-    /*::	This function converts decimal degrees to radians						 :*/
-    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-    private static double deg2rad(double deg) {
-        return (deg * Math.PI / 180.0);
-    }
-
-    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-    /*::	This function converts radians to decimal degrees						 :*/
-    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-    private static double rad2deg(double rad) {
-        return (rad * 180 / Math.PI);
     }
 }
