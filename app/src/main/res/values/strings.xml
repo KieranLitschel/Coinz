@@ -7,4 +7,7 @@
     <string name="close_app">Close app</string>
     <string name="try_again">Try again</string>
     <string name="no_login_dialog_message">You must be logged in to the app to use it with no internet. Please connect to the internet and log in.</string>
+    <string name="balance">Balance</string>
+    <string name="coin_exchange">Coin Exchange</string>
+    <string name="leaderboard">Leaderboard</string>
 </resources>
