@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 import java.time.LocalDate;
 import java.util.concurrent.locks.StampedLock;
 
-class MapUpdateTask implements Runnable {
+public class MapUpdateTask implements Runnable {
 
     private StampedLock mapUpdateLock;
     private MapUpdateCallback context;
