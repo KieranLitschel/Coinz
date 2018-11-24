@@ -110,13 +110,12 @@ public class CoinsUpdateTask implements Runnable {
                 public void onSuccess(Void aVoid) {
                     context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
                 }
-            })
-                    .addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            System.out.println("Task failed with exception " + e);
-                        }
-                    });
+            }).addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception e) {
+                    System.out.println("Task failed with exception " + e);
+                }
+            });
         } else {
             mapUpdateLock.unlockWrite(lockStamp);
             System.out.println("COINS UPDATE TASK RELEASED LOCK");
