@@ -250,17 +250,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         // as you specify a parent activity in AndroidManifest.xml.
 
         switch (item.getItemId()) {
-            /** NEEDS MOVING TO MAP FRAGMENT
-            case R.id.action_reset_view:
-                CameraPosition position = new CameraPosition.Builder()
-                        .target(new LatLng(55.944425, -3.188396))
-                        .zoom(15)
-                        .bearing(0)
-                        .tilt(0)
-                        .build();
-                map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
-                return true;
-             **/
             case R.id.action_logout:
                 logout();
                 return true;

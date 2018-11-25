@@ -28,6 +28,8 @@ import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.MarkerOptions;
+import com.mapbox.mapboxsdk.camera.CameraPosition;
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
@@ -106,6 +108,20 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             map = mapboxMap;
             mapUpdateLock.unlockWrite(lockStamp);
             enableLocationPlugin();
+        });
+
+        FloatingActionButton zoomOutFAB = (FloatingActionButton) view.findViewById(R.id.zoomOutFAB);
+        zoomOutFAB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                CameraPosition position = new CameraPosition.Builder()
+                        .target(new LatLng(55.944425, -3.188396))
+                        .zoom(15)
+                        .bearing(0)
+                        .tilt(0)
+                        .build();
+                map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
+            }
         });
 
         FloatingActionButton fab = (FloatingActionButton) view.findViewById(R.id.fab);
