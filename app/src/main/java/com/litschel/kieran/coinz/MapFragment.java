@@ -288,8 +288,9 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                     .show();
             setToUpdateOnInternet();
+        } else {
+            new DownloadMapTask(this, mapUpdateLock, lockStamp).execute(url);
         }
-        new DownloadMapTask(this, mapUpdateLock, lockStamp).execute(url);
     }
 
     private void setToUpdateOnInternet() {
@@ -361,6 +362,16 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         setToUpdateAtMidnight();
+        if (((MainActivity) getActivity()).isNetworkAvailable()){
+            initialMapSetup();
+        } else {
+            Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
+                    .show();
+            setToInitialMapSetupOnInternet();
+        }
+    }
+
+    private void initialMapSetup(){
         if (settings.getString("map", "").equals("")) {
             DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
             docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
@@ -397,6 +408,26 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             updateMarkers(lockStamp);
             checkForMapUpdate();
         }
+    }
+
+    private void setToInitialMapSetupOnInternet() {
+        System.out.println("CREATED TIMER TASK");
+        TimerTask mTtInternet = new TimerTask() {
+            public void run() {
+                myTimerTaskHandler.post(() -> {
+                    System.out.println("TIMER TASK TRIGGERED");
+                    if (((MainActivity) getActivity()).isNetworkAvailable()) {
+                        System.out.println("TIMER TASK FOUND INTERNET");
+                        initialMapSetup();
+                    } else {
+                        System.out.println("TIMER TASK FOUND NO INTERNET");
+                        setToUpdateOnInternet();
+                    }
+                });
+            }
+        };
+        System.out.println("TIMER TASK SCHEDULED");
+        myTimer.schedule(mTtInternet, 5000);
     }
 
 
