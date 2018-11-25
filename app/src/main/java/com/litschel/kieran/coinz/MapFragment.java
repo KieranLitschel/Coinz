@@ -17,6 +17,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.mapbox.android.core.location.LocationEngine;
 import com.mapbox.android.core.location.LocationEngineListener;
@@ -47,6 +53,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
@@ -66,7 +73,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private ExecutorService mapUpdateExecutor;
     private SharedPreferences settings;
     private FirebaseFirestore db;
-    private boolean justStarted;
     private ArrayList<Marker> markers;
     private Timer myTimer;
     private Handler myTimerTaskHandler;
@@ -77,8 +83,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         super.onAttach(context);
         activity = context;
         settings = ((MainActivity) getActivity()).settings;
-        db = ((MainActivity) getActivity()).db;
-        System.out.println("DONE");
+        db = FirebaseFirestore.getInstance();
     }
 
     @Nullable
@@ -93,10 +98,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         this.view = view;
 
-        justStarted = true;
-        // Need lock to prevent map being written before it is created
-
-        long lockStamp = mapUpdateLock.writeLock();
         mapUpdateExecutor = Executors.newFixedThreadPool(1);
 
         Mapbox.getInstance(activity, getString(R.string.mapbox_access_token));
@@ -106,7 +107,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         mapView.getMapAsync(mapboxMap -> {
             map = mapboxMap;
-            mapUpdateLock.unlockWrite(lockStamp);
+            System.out.println("ONVIEWCREATED RELEASED LOCK");
             enableLocationPlugin();
         });
 
@@ -170,16 +171,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 .include(new LatLng(55.942617, -3.184319))
                 .build();
         map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
-
-        if (justStarted && (!settings.getString("map", "").equals(""))) {
-            System.out.println("INITIALIZE LOCATION ENGINE WAITING FOR LOCK");
-            long lockStamp = mapUpdateLock.writeLock();
-            System.out.println("INITIALIZE LOCATION ENGINE ACQUIRED LOCK");
-            updateMarkers(lockStamp);
-            justStarted = false;
-        }
-
-        checkForMapUpdate();
 
         locationManager = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
@@ -369,24 +360,98 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         setToUpdateAtMidnight();
-        checkForMapUpdate();
+        if (settings.getString("map", "").equals("")) {
+            DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
+            docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                @Override
+                public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot document = task.getResult();
+                        if (document.exists()) {
+                            String mapJSONString = document.getString("map");
+                            String lastDownloadedDate = document.getString("lastDownloadDate");
+                            SharedPreferences.Editor editor = settings.edit();
+                            editor.putString("map", mapJSONString);
+                            editor.putString("lastDownloadDate", lastDownloadedDate);
+                            editor.apply();
+                            if (!settings.getString("map", "").equals("")) {
+                                System.out.println("ON START WAITING FOR LOCK");
+                                long lockStamp = mapUpdateLock.writeLock();
+                                System.out.println("ON START ACQUIRED LOCK");
+                                updateMarkers(lockStamp);
+                            }
+                            checkForMapUpdate();
+                        } else {
+                            System.out.println("COULDN'T FIND USER IN FIREBASE");
+                        }
+                    } else {
+                        System.out.printf("GETTING DOCUMENT FAILED WITH EXCEPTION: %s\n", task.getException());
+                    }
+                }
+            });
+        } else {
+            System.out.println("ON START WAITING FOR LOCK");
+            long lockStamp = mapUpdateLock.writeLock();
+            System.out.println("ON START ACQUIRED LOCK");
+            updateMarkers(lockStamp);
+            checkForMapUpdate();
+        }
     }
 
 
     @Override
     public void onMapDownloaded(String mapJSONString, long lockStamp) {
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("map", mapJSONString);
-        editor.putString("lastDownloadDate", LocalDate.now().toString());
-        editor.apply();
         System.out.println("SUCCEEDED IN DOWNLOADING MAP");
-        updateMarkers(mapJSONString, lockStamp);
+        Map<String, Object> mapData = new HashMap<>();
+        mapData.put("lastDownloadDate", LocalDate.now().toString());
+        mapData.put("map", mapJSONString);
+        db.collection("users").document(((MainActivity) getActivity()).uid)
+                .update(mapData)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        SharedPreferences.Editor editor = settings.edit();
+                        editor.putString("map", mapJSONString);
+                        editor.putString("lastDownloadDate", LocalDate.now().toString());
+                        editor.apply();
+                        System.out.println("UPDATED MAP IN FIREBASE SUCCESSFULLY");
+                        updateMarkers(mapJSONString, lockStamp);
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n",e.getMessage());
+                        mapUpdateLock.unlockWrite(lockStamp);
+                        System.out.println("ON MAP DOWNLOADED RELEASED LOCK");
+                    }
+                });
     }
 
     public void updateMarkers(long lockStamp) {
-        String mapJSONString = settings.getString("map", "");
-        map.clear();
-        updateMarkers(mapJSONString, lockStamp);
+        DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
+        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (document.exists()) {
+                        String mapJSONString = document.getString("map");
+                        map.clear();
+                        updateMarkers(mapJSONString, lockStamp);
+                    } else {
+                        System.out.println("GETTING MAP FROM FIREBASE TO UPDATE MARKERS FAILED, COULDN'T FIND USER IN DATABASE");
+                        mapUpdateLock.unlockWrite(lockStamp);
+                        System.out.println("ON COINS UPDATED RELEASED LOCK");
+                    }
+                } else {
+                    System.out.printf("GETTING MAP FROM FIREBASE TO UPDATE MARKERS FAILED WITH EXCEPTION: %s\n", task.getException());
+                    mapUpdateLock.unlockWrite(lockStamp);
+                    System.out.println("ON COINS UPDATED RELEASED LOCK");
+                }
+            }
+        });
+
     }
 
     public void updateMarkers(String mapJSONString, long lockStamp) {
@@ -457,11 +522,30 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             messageBuilder.append(currency);
             Snackbar.make(view, messageBuilder.toString(), Snackbar.LENGTH_LONG).show();
         }
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("map", mapJSON.toString());
-        editor.apply();
-        mapUpdateLock.unlockWrite(lockStamp);
-        System.out.println("ON COINS UPDATED RELEASED LOCK");
+        String mapJSONString = mapJSON.toString();
+        Map<String, Object> mapData = new HashMap<>();
+        mapData.put("map", mapJSONString);
+        db.collection("users").document(((MainActivity) getActivity()).uid)
+                .update(mapData)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        SharedPreferences.Editor editor = settings.edit();
+                        editor.putString("map", mapJSONString);
+                        editor.putString("lastDownloadDate", LocalDate.now().toString());
+                        editor.apply();
+                        mapUpdateLock.unlockWrite(lockStamp);
+                        System.out.println("ON COINS UPDATED RELEASED LOCK");
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
+                        mapUpdateLock.unlockWrite(lockStamp);
+                        System.out.println("ON COINS UPDATED RELEASED LOCK");
+                    }
+                });
     }
 
     @Override

@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
@@ -20,21 +21,26 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.Menu;
 import android.view.MenuItem;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.StampedLock;
 
 public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback {
 
@@ -89,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     public boolean onNavigationItemSelected(MenuItem menuItem) {
                         int itemId = menuItem.getItemId();
 
-                        if (!navigationView.getMenu().findItem(menuItem.getItemId()).isChecked()){
+                        if (!navigationView.getMenu().findItem(menuItem.getItemId()).isChecked()) {
                             Fragment fragment = null;
                             Class fragmentClass = null;
 
@@ -105,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                             }
 
                             // If we use logout we don't want the currently displayed fragment to change
-                            if (itemId!=R.id.nav_logout){
+                            if (itemId != R.id.nav_logout) {
                                 try {
                                     currentFragment = (Fragment) fragmentClass.newInstance();
                                 } catch (Exception e) {
@@ -133,7 +139,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         signIn();
     }
 
-    private void setDefaultFragment(){
+    private void setDefaultFragment() {
         // Set default fragment to the map
 
         Class fragmentClass = MapFragment.class;
@@ -152,8 +158,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     }
 
     private void signIn() {
-        if (uid.equals("")){
-            if (isNetworkAvailable()){
+        if (uid.equals("")) {
+            if (isNetworkAvailable()) {
                 List<AuthUI.IdpConfig> providers = Arrays.asList(
                         new AuthUI.IdpConfig.EmailBuilder().build());
 
@@ -195,8 +201,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 editor.putString("uid", uid);
                 editor.apply();
                 checkFirstTimeUser();
-                System.out.println("USER SIGNED IN SUCCESSFULLY");
-                setDefaultFragment();
                 // ...
             } else {
                 if (response != null) {
@@ -214,17 +218,22 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
     private void checkFirstTimeUser() {
         DocumentReference docRef = db.collection("users").document(uid);
-        docRef.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                DocumentSnapshot document = task.getResult();
-                if (!document.exists()) {
-                    System.out.println("FIRST TIME USER, SETTING DEFAULTS");
-                    setFirstTimeUser();
+        System.out.println("CHECKING IF USER EXISTS IN DATABASE");
+        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (!document.exists()) {
+                        System.out.println("FIRST TIME USER, SETTING DEFAULTS");
+                        setFirstTimeUser();
+                    } else {
+                        System.out.println("USER EXISTS IN DATABASE");
+                        setDefaultFragment();
+                    }
                 } else {
-                    System.out.println("USER EXISTS IN DATABASE");
+                    System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
                 }
-            } else {
-                System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
             }
         });
     }
@@ -236,16 +245,32 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         user_defaults.put("PENY", 0.0);
         user_defaults.put("QUID", 0.0);
         user_defaults.put("SHIL", 0.0);
+        user_defaults.put("map", "");
+        user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
+
         db.collection("users").document(uid)
                 .set(user_defaults)
-                .addOnSuccessListener(aVoid -> System.out.println("SUCCESSFULLY ADDED USER TO DATABASE"))
-                .addOnFailureListener(e -> System.out.println("FAILED TO ADD USER TO DATABASE"));
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
+                        setDefaultFragment();
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        System.out.println("FAILED TO ADD USER TO DATABASE");
+                    }
+                });
     }
 
     private void logout() {
         fragmentManager.beginTransaction().remove(currentFragment).commit();
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("uid", "");
+        editor.putString("map", "");
+        editor.putString("lastDownloadDate", "");
         editor.apply();
         uid = "";
         signIn();
