@@ -44,6 +44,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     public String uid;
     public FirebaseFirestore db;
     private DrawerLayout mDrawerLayout;
+    private NavigationView navigationView;
+    private FragmentManager fragmentManager;
+    private Fragment currentFragment = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,64 +80,72 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
         db = FirebaseFirestore.getInstance();
 
-        signIn();
-
         mDrawerLayout = findViewById(R.id.drawer_layout);
 
-        NavigationView navigationView = findViewById(R.id.nav_view);
+        navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(
                 new NavigationView.OnNavigationItemSelectedListener() {
                     @Override
                     public boolean onNavigationItemSelected(MenuItem menuItem) {
+                        int itemId = menuItem.getItemId();
 
                         if (!navigationView.getMenu().findItem(menuItem.getItemId()).isChecked()){
                             Fragment fragment = null;
-                            Class fragmentClass;
+                            Class fragmentClass = null;
 
-                            switch (menuItem.getItemId()) {
+                            switch (itemId) {
                                 case R.id.nav_map:
                                     fragmentClass = MapFragment.class;
+                                    break;
+                                case R.id.nav_logout:
+                                    logout();
                                     break;
                                 default:
                                     fragmentClass = MapFragment.class;
                             }
 
-                            try {
-                                fragment = (Fragment) fragmentClass.newInstance();
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
+                            // If we use logout we don't want the currently displayed fragment to change
+                            if (itemId!=R.id.nav_logout){
+                                try {
+                                    currentFragment = (Fragment) fragmentClass.newInstance();
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
 
-                            // Insert the fragment by replacing any existing fragment
-                            FragmentManager fragmentManager = getSupportFragmentManager();
-                            fragmentManager.beginTransaction().replace(R.id.flContent, fragment).commit();
+                                // Insert the fragment by replacing any existing fragment
+                                fragmentManager = getSupportFragmentManager();
+                                fragmentManager.beginTransaction().replace(R.id.flContent, currentFragment).commit();
+
+                                // Highlight the selected item has been done by NavigationView
+                                menuItem.setChecked(true);
+                                // Set action bar title
+                                setTitle(menuItem.getTitle());
+                            }
                         }
 
-                        // Highlight the selected item has been done by NavigationView
-                        menuItem.setChecked(true);
-                        // Set action bar title
-                        setTitle(menuItem.getTitle());
                         // Close the navigation drawer
-
                         mDrawerLayout.closeDrawers();
 
                         return true;
                     }
                 });
 
+        signIn();
+    }
+
+    private void setDefaultFragment(){
         // Set default fragment to the map
 
-        Fragment fragment = null;
         Class fragmentClass = MapFragment.class;
 
         try {
-            fragment = (Fragment) fragmentClass.newInstance();
+            currentFragment = (Fragment) fragmentClass.newInstance();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        fragmentManager.beginTransaction().replace(R.id.flContent, fragment).commit();
+        fragmentManager = getSupportFragmentManager();
+        fragmentManager.beginTransaction().replace(R.id.flContent, currentFragment).commit();
 
         navigationView.setCheckedItem(R.id.nav_map);
         setTitle("Map");
@@ -157,6 +168,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 noInternetFragment.setCancelable(false);
                 noInternetFragment.show(getSupportFragmentManager(), "no_internet_dialog");
             }
+        } else {
+            setDefaultFragment();
         }
     }
 
@@ -183,6 +196,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 editor.apply();
                 checkFirstTimeUser();
                 System.out.println("USER SIGNED IN SUCCESSFULLY");
+                setDefaultFragment();
                 // ...
             } else {
                 if (response != null) {
@@ -229,18 +243,12 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     }
 
     private void logout() {
+        fragmentManager.beginTransaction().remove(currentFragment).commit();
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("uid", "");
         editor.apply();
         uid = "";
         signIn();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
     }
 
     @Override
@@ -250,9 +258,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         // as you specify a parent activity in AndroidManifest.xml.
 
         switch (item.getItemId()) {
-            case R.id.action_logout:
-                logout();
-                return true;
             case android.R.id.home:
                 mDrawerLayout.openDrawer(GravityCompat.START);
                 return true;

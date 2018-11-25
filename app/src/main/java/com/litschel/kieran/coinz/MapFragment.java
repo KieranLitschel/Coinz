@@ -504,8 +504,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onDestroyView() {
+        super.onDestroyView();
         mapView.onDestroy();
         if (locationEngine != null) {
             locationEngine.deactivate();
