@@ -22,6 +22,7 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
@@ -205,10 +206,10 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             } else {
                 if (response != null) {
                     System.out.println("USER FAILED TO SIGN IN WITH ERROR CODE" + response.getError().getErrorCode());
-                    Snackbar.make(findViewById(R.id.toolbar), String.format("Failed to sign in with error code %s, please try again", response.getError().getErrorCode()), Snackbar.LENGTH_LONG)
+                    Toast.makeText(this, String.format("Failed to sign in with error code %s, please try again", response.getError().getErrorCode()), Toast.LENGTH_LONG)
                             .show();
                 } else {
-                    Snackbar.make(findViewById(R.id.toolbar), "You must sign in to use this app.", Snackbar.LENGTH_LONG)
+                    Toast.makeText(this, "You must sign in to use this app.", Toast.LENGTH_LONG)
                             .show();
                     signIn();
                 }

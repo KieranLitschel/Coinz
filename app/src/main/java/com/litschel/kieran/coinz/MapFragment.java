@@ -16,6 +16,7 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
@@ -284,7 +285,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
         if (!((MainActivity) getActivity()).isNetworkAvailable()) {
-            Snackbar.make(view, "Will update map when there is an internet connection", Snackbar.LENGTH_LONG)
+            Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                     .show();
             setToUpdateOnInternet();
         }
@@ -495,8 +496,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (coinsCollected.size() == 1) {
             String currency = coinsCollected.get(0)[0];
             String value = coinsCollected.get(0)[1];
-            Snackbar.make(view, "Collected " + value
-                    + " " + currency, Snackbar.LENGTH_LONG).show();
+            Toast.makeText(activity, "Collected " + value
+                    + " " + currency, Toast.LENGTH_LONG).show();
         } else {
             StringBuilder messageBuilder = new StringBuilder();
             messageBuilder.append("Collected ");
@@ -520,7 +521,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             messageBuilder.append(value);
             messageBuilder.append(" ");
             messageBuilder.append(currency);
-            Snackbar.make(view, messageBuilder.toString(), Snackbar.LENGTH_LONG).show();
+            Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show();
         }
         String mapJSONString = mapJSON.toString();
         Map<String, Object> mapData = new HashMap<>();
