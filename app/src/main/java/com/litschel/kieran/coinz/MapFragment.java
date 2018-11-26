@@ -274,21 +274,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private void checkForMapUpdate() {
         if (settings != null) {
             System.out.println("CHECKING IF MAP UPDATE REQUIRED");
-
-            // Not the ideal way to clear the map as may be executed multiple times, but there was a strange bug with mapbox where
-            // if I tried to remove a marker from the map on another thread the thread would just enter the method and never return
-            // from it, without even throwing an exception. Despite clearling the map outside the thread, it is necessary to delete
-            // the markers on a seperate thread to avoid intefering with collecting them
-
-            LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
-            if (lastDownloadDate.isBefore(LocalDate.now()) && map != null) {
-                System.out.println("CLEARING MAP");
-                for (Marker marker : markers){
-                    map.removeMarker(marker);
-                }
-                System.out.println("CLEARED MAP!");
-            }
-
             mapUpdateExecutor.submit(new MapUpdateTask(this, mapUpdateLock, settings));
         }
     }
@@ -297,6 +282,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void updateMap(long lockStamp) {
         if (!settings.getString("map", "").equals("")) {
             markers = new ArrayList<>();
+            // This will be called on a thread seperate to the main activity, so we must tell it to run on the UI thread
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    map.clear();
+                }
+            });
             SharedPreferences.Editor editor = settings.edit();
             editor.putString("map", "");
             editor.apply();
@@ -316,7 +308,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (!((MainActivity) getActivity()).isNetworkAvailable()) {
             setToUpdateOnInternet();
             mapUpdateLock.unlockWrite(lockStamp);
-            // This will be called on a thread seperate to the main activity, so we must tell it to run on the UI thread
+            // Similarly to for map.clear, as this changes a UI element we must call it on the UI thread
             getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
