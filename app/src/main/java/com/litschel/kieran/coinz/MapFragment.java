@@ -77,7 +77,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private ArrayList<Marker> markers;
     private Timer myTimer;
     private Handler myTimerTaskHandler;
-    private View view;
+    private boolean justCreated;
 
     @Override
     public void onAttach(Context context) {
@@ -95,9 +95,10 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        System.out.println("ONVIEWCREATED WAITING FOR LOCK");
+        //long stampedLock = mapUpdateLock.writeLock();
+        System.out.println("ONVIEWCREATED ACQUIRED LOCK");
         super.onViewCreated(view, savedInstanceState);
-
-        this.view = view;
 
         mapUpdateExecutor = Executors.newFixedThreadPool(1);
 
@@ -108,7 +109,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         mapView.getMapAsync(mapboxMap -> {
             map = mapboxMap;
-            System.out.println("ONVIEWCREATED RELEASED LOCK");
+            //mapUpdateLock.unlockWrite(stampedLock);
+            //System.out.println("ONVIEWCREATED RELEASED LOCK");
             enableLocationPlugin();
         });
 
@@ -136,6 +138,31 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 removeMarkers(markersToRemove);
             }
         });
+
+        initialSetup();
+        justCreated = true;
+    }
+
+    private void initialSetup(){
+        myTimer = new Timer();
+        myTimerTaskHandler = new Handler();
+        setToUpdateAtMidnight();
+        if (settings.getString("map", "").equals("")) {
+            // If there is no internet we will not be able to contact firebase, so we schedule to run the method when there is internet
+            if (((MainActivity) getActivity()).isNetworkAvailable()) {
+                initialMapSetup();
+            } else {
+                Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
+                        .show();
+                setToInitialMapSetupOnInternet();
+            }
+        } else {
+            System.out.println("ON START WAITING FOR LOCK");
+            long lockStamp = mapUpdateLock.writeLock();
+            System.out.println("ON START ACQUIRED LOCK");
+            updateMarkers(lockStamp);
+            checkForMapUpdate();
+        }
     }
 
     @SuppressWarnings({"MissingPermission"})
@@ -359,55 +386,44 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             mapUpdateExecutor = Executors.newFixedThreadPool(1);
         }
         mapView.onStart();
-        myTimer = new Timer();
-        myTimerTaskHandler = new Handler();
-        setToUpdateAtMidnight();
-        if (((MainActivity) getActivity()).isNetworkAvailable()){
-            initialMapSetup();
+        // initialSetup is run in onCreateView when the view is created instead of here in order to
+        // prevent mapUpdate being called before the map is created
+        if (!justCreated){
+            initialSetup();
         } else {
-            Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
-                    .show();
-            setToInitialMapSetupOnInternet();
+            justCreated = false;
         }
     }
 
-    private void initialMapSetup(){
-        if (settings.getString("map", "").equals("")) {
-            DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
-            docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                @Override
-                public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                    if (task.isSuccessful()) {
-                        DocumentSnapshot document = task.getResult();
-                        if (document.exists()) {
-                            String mapJSONString = document.getString("map");
-                            String lastDownloadedDate = document.getString("lastDownloadDate");
-                            SharedPreferences.Editor editor = settings.edit();
-                            editor.putString("map", mapJSONString);
-                            editor.putString("lastDownloadDate", lastDownloadedDate);
-                            editor.apply();
-                            if (!settings.getString("map", "").equals("")) {
-                                System.out.println("ON START WAITING FOR LOCK");
-                                long lockStamp = mapUpdateLock.writeLock();
-                                System.out.println("ON START ACQUIRED LOCK");
-                                updateMarkers(lockStamp);
-                            }
-                            checkForMapUpdate();
-                        } else {
-                            System.out.println("COULDN'T FIND USER IN FIREBASE");
+    private void initialMapSetup() {
+        DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
+        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (document.exists()) {
+                        String mapJSONString = document.getString("map");
+                        String lastDownloadedDate = document.getString("lastDownloadDate");
+                        SharedPreferences.Editor editor = settings.edit();
+                        editor.putString("map", mapJSONString);
+                        editor.putString("lastDownloadDate", lastDownloadedDate);
+                        editor.apply();
+                        if (!settings.getString("map", "").equals("")) {
+                            System.out.println("ON START WAITING FOR LOCK");
+                            long lockStamp = mapUpdateLock.writeLock();
+                            System.out.println("ON START ACQUIRED LOCK");
+                            updateMarkers(lockStamp);
                         }
+                        checkForMapUpdate();
                     } else {
-                        System.out.printf("GETTING DOCUMENT FAILED WITH EXCEPTION: %s\n", task.getException());
+                        System.out.println("COULDN'T FIND USER IN FIREBASE");
                     }
+                } else {
+                    System.out.printf("GETTING DOCUMENT FAILED WITH EXCEPTION: %s\n", task.getException());
                 }
-            });
-        } else {
-            System.out.println("ON START WAITING FOR LOCK");
-            long lockStamp = mapUpdateLock.writeLock();
-            System.out.println("ON START ACQUIRED LOCK");
-            updateMarkers(lockStamp);
-            checkForMapUpdate();
-        }
+            }
+        });
     }
 
     private void setToInitialMapSetupOnInternet() {
@@ -453,7 +469,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 .addOnFailureListener(new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception e) {
-                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n",e.getMessage());
+                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e.getMessage());
                         mapUpdateLock.unlockWrite(lockStamp);
                         System.out.println("ON MAP DOWNLOADED RELEASED LOCK");
                     }
