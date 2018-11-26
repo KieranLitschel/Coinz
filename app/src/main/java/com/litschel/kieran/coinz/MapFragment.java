@@ -283,7 +283,9 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
             if (lastDownloadDate.isBefore(LocalDate.now()) && map != null) {
                 System.out.println("CLEARING MAP");
-                map.clear();
+                for (Marker marker : markers){
+                    map.removeMarker(marker);
+                }
                 System.out.println("CLEARED MAP!");
             }
 
@@ -312,9 +314,16 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
         if (!((MainActivity) getActivity()).isNetworkAvailable()) {
-            Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
-                    .show();
             setToUpdateOnInternet();
+            mapUpdateLock.unlockWrite(lockStamp);
+            // This will be called on a thread seperate to the main activity, so we must tell it to run on the UI thread
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
+                            .show();
+                }
+            });
         } else {
             new DownloadMapTask(this, mapUpdateLock, lockStamp).execute(url);
         }
@@ -477,29 +486,9 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     public void updateMarkers(long lockStamp) {
-        DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
-        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    if (document.exists()) {
-                        String mapJSONString = document.getString("map");
-                        map.clear();
-                        updateMarkers(mapJSONString, lockStamp);
-                    } else {
-                        System.out.println("GETTING MAP FROM FIREBASE TO UPDATE MARKERS FAILED, COULDN'T FIND USER IN DATABASE");
-                        mapUpdateLock.unlockWrite(lockStamp);
-                        System.out.println("ON COINS UPDATED RELEASED LOCK");
-                    }
-                } else {
-                    System.out.printf("GETTING MAP FROM FIREBASE TO UPDATE MARKERS FAILED WITH EXCEPTION: %s\n", task.getException());
-                    mapUpdateLock.unlockWrite(lockStamp);
-                    System.out.println("ON COINS UPDATED RELEASED LOCK");
-                }
-            }
-        });
-
+        String mapJSONString = settings.getString("map", "");
+        map.clear();
+        updateMarkers(mapJSONString, lockStamp);
     }
 
     public void updateMarkers(String mapJSONString, long lockStamp) {
