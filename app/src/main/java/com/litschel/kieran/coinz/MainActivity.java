@@ -97,12 +97,14 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                         int itemId = menuItem.getItemId();
 
                         if (!navigationView.getMenu().findItem(menuItem.getItemId()).isChecked()) {
-                            Fragment fragment = null;
                             Class fragmentClass = null;
 
                             switch (itemId) {
                                 case R.id.nav_map:
                                     fragmentClass = MapFragment.class;
+                                    break;
+                                case R.id.nav_balance:
+                                    fragmentClass = BalanceFragment.class;
                                     break;
                                 case R.id.nav_logout:
                                     logout();

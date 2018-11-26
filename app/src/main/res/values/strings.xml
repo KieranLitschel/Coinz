@@ -11,4 +11,14 @@
     <string name="coin_exchange">Coin Exchange</string>
     <string name="leaderboard">Leaderboard</string>
     <string name="map">Map</string>
+    <string name="GOLDColon">GOLD:</string>
+    <string name="PENYColon">PENNY:</string>
+    <string name="DOLRColon">DOLR:</string>
+    <string name="SHILColon">SHIL:</string>
+    <string name="QUIDColon">QUID:</string>
+    <string name="GOLDCOLON">GOLD:</string>
+    <string name="PENYCOLON">PENY:</string>
+    <string name="DOLRCOLON">DOLR:</string>
+    <string name="SHILCOLON">SHIL:</string>
+    <string name="QUIDCOLON">QUID:</string>
 </resources>
