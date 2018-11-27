@@ -95,9 +95,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        System.out.println("ONVIEWCREATED WAITING FOR LOCK");
-        //long stampedLock = mapUpdateLock.writeLock();
-        System.out.println("ONVIEWCREATED ACQUIRED LOCK");
+        justCreated = true;
         super.onViewCreated(view, savedInstanceState);
 
         mapUpdateExecutor = Executors.newFixedThreadPool(1);
@@ -109,9 +107,9 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         mapView.getMapAsync(mapboxMap -> {
             map = mapboxMap;
-            //mapUpdateLock.unlockWrite(stampedLock);
-            //System.out.println("ONVIEWCREATED RELEASED LOCK");
             enableLocationPlugin();
+            // Run initial setup after the map has been created to avoid null pointer exception on map
+            initialSetup();
         });
 
         FloatingActionButton zoomOutFAB = (FloatingActionButton) view.findViewById(R.id.zoomOutFAB);
@@ -138,9 +136,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 removeMarkers(markersToRemove);
             }
         });
-
-        initialSetup();
-        justCreated = true;
     }
 
     private void initialSetup(){
