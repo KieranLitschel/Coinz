@@ -5,6 +5,8 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -62,6 +64,15 @@ public class BalanceFragment extends Fragment {
             currencyValues.put(currency,Double.parseDouble(settings.getString(currency+"Value","0")));
         }
         setupValues();
+
+        FloatingActionButton exchangeCryptoFAB = (FloatingActionButton) view.findViewById(R.id.exchangeCryptoBtn);
+        exchangeCryptoFAB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                DialogFragment newFragment = new ExchangeCryptoDialogFragment();
+                newFragment.show(Objects.requireNonNull(getActivity()).getSupportFragmentManager(), "exchange_crypto_dialog");
+            }
+        });
     }
 
     private void setupValues(){
