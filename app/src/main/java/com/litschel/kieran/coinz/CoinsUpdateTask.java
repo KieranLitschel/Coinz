@@ -17,6 +17,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -100,6 +101,11 @@ public class CoinsUpdateTask implements Runnable {
                         Double value = Double.parseDouble(markerDetails.get(marker)[1]);
                         newValues.put(currency, (double) newValues.get(currency) + value);
                     }
+                    SharedPreferences.Editor editor = settings.edit();
+                    for (String currency : currencies) {
+                        editor.putString(currency,Double.toString((double) newValues.get(currency)));
+                    }
+                    editor.apply();
                     transaction.update(docRef, newValues);
 
                     // Success

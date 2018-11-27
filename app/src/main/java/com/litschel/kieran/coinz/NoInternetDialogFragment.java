@@ -7,17 +7,17 @@ import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 
-public class NoInternetDialogFragment extends DialogFragment{
+public class NoInternetDialogFragment extends DialogFragment {
 
     public interface NoInternetDialogCallback {
         void tryInternetAgain();
+
         void closeApp();
     }
 
     // Use this instance of the interface to deliver action events
     NoInternetDialogCallback mListener;
 
-    // Override the Fragment.onAttach() method to instantiate the NoticeDialogListener
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);

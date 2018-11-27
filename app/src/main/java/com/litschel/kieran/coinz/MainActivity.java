@@ -10,7 +10,6 @@ import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -41,7 +40,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.StampedLock;
 
 public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback {
 
@@ -250,6 +248,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         user_defaults.put("SHIL", 0.0);
         user_defaults.put("map", "");
         user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
+        user_defaults.put("goldInExchange",0.0);
 
         db.collection("users").document(uid)
                 .set(user_defaults)

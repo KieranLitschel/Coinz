@@ -11,16 +11,17 @@
     <string name="coin_exchange">Coin Exchange</string>
     <string name="leaderboard">Leaderboard</string>
     <string name="map">Map</string>
-    <string name="gold_in_exchange">Gold in return:\n0.0</string>
+    <string name="value_in_gold">Offered gold for crypto:\n0.0</string>
     <string name="cryptoEditTextHint">Amount to exchange…</string>
     <string name="cancel">Cancel</string>
     <string name="accept_trade">Accept Trade</string>
     <string name="exchange_crypto_title">Exchange Gold with Bank</string>
-    <string name="remaining_gold_to_trade">Remaining gold to trade:\n</string>
+    <string name="remaining_gold_to_trade">Remaining crypto bank will accept today:\n25.0</string>
+    <string name="exhange_rate_text">Exchange rate:\n0.0</string>
     <string-array name="crypto_array">
         <item>PENY</item>
         <item>DOLR</item>
         <item>SHIL</item>
-        <item>GOLD</item>
+        <item>QUID</item>
     </string-array>
 </resources>

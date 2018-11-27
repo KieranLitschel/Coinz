@@ -78,6 +78,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private Timer myTimer;
     private Handler myTimerTaskHandler;
     private boolean justCreated;
+    private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
 
     @Override
     public void onAttach(Context context) {
@@ -138,7 +139,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         });
     }
 
-    private void initialSetup(){
+    private void initialSetup() {
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         setToUpdateAtMidnight();
@@ -384,7 +385,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         mapView.onStart();
         // initialSetup is run in onCreateView when the view is created instead of here in order to
         // prevent mapUpdate being called before the map is created
-        if (!justCreated){
+        if (!justCreated) {
             initialSetup();
         } else {
             justCreated = false;
@@ -401,9 +402,14 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                     if (document.exists()) {
                         String mapJSONString = document.getString("map");
                         String lastDownloadedDate = document.getString("lastDownloadDate");
+                        double goldInExchange = document.getDouble("goldInExchange");
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString("map", mapJSONString);
                         editor.putString("lastDownloadDate", lastDownloadedDate);
+                        editor.putString("goldInExchange", Double.toString(goldInExchange));
+                        for (String currency : currencies) {
+                            editor.putString(currency, Double.toString(document.getDouble(currency)));
+                        }
                         editor.apply();
                         if (!settings.getString("map", "").equals("")) {
                             System.out.println("ON START WAITING FOR LOCK");
@@ -449,6 +455,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         Map<String, Object> mapData = new HashMap<>();
         mapData.put("lastDownloadDate", LocalDate.now().toString());
         mapData.put("map", mapJSONString);
+        mapData.put("goldInExchange", 25);
         db.collection("users").document(((MainActivity) getActivity()).uid)
                 .update(mapData)
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
@@ -457,6 +464,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString("map", mapJSONString);
                         editor.putString("lastDownloadDate", LocalDate.now().toString());
+                        editor.putString("goldInExchange", "25");
                         editor.apply();
                         System.out.println("UPDATED MAP IN FIREBASE SUCCESSFULLY");
                         updateMarkers(mapJSONString, lockStamp);

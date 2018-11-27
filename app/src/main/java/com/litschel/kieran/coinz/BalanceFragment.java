@@ -1,6 +1,8 @@
 package com.litschel.kieran.coinz;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -12,31 +14,43 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 
-import java.util.ArrayList;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.Transaction;
+
 public class BalanceFragment extends Fragment {
+    private Context activity;
     private FirebaseFirestore db;
     private SharedPreferences settings;
     private DocumentReference docRef;
-    private String[] currencies;
-    private HashMap<String,TextView> currencyTexts;
-    private HashMap<String,Double> currencyValues;
+    private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
+    private final String[] cryptoCurrencies = new String[]{"PENY", "DOLR", "SHIL", "QUID"};
+    private HashMap<String, TextView> currencyTexts;
+    private HashMap<String, Double> currencyValues;
+    private HashMap<String, Double> currencyRates;
+    private double goldInExchange;
+    private final int DIALOG_FRAGMENT = 1;
+    private BalanceFragment fragment = this;
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        db = ((MainActivity) getActivity()).db;
+        activity = context;
+        db = ((MainActivity) Objects.requireNonNull(getActivity())).db;
         settings = ((MainActivity) getActivity()).settings;
         docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
     }
@@ -49,84 +63,98 @@ public class BalanceFragment extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        // Listen for changes in document as opposed to just getting values on creation, as gift may change balance while its being viewed
-        currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
-        currencyTexts = new HashMap<String,TextView>()
-        {{
-            put("GOLD",(view.findViewById(R.id.GOLDText)));
-            put("PENY",(view.findViewById(R.id.PENYText)));
-            put("DOLR",(view.findViewById(R.id.DOLRText)));
-            put("SHIL",(view.findViewById(R.id.SHILText)));
-            put("QUID",(view.findViewById(R.id.QUIDText)));
+        currencyTexts = new HashMap<String, TextView>() {{
+            put("GOLD", (view.findViewById(R.id.GOLDText)));
+            put("PENY", (view.findViewById(R.id.PENYText)));
+            put("DOLR", (view.findViewById(R.id.DOLRText)));
+            put("SHIL", (view.findViewById(R.id.SHILText)));
+            put("QUID", (view.findViewById(R.id.QUIDText)));
         }};
         currencyValues = new HashMap<>();
-        for (String currency : currencies){
-            currencyValues.put(currency,Double.parseDouble(settings.getString(currency+"Value","0")));
+        for (String currency : currencies) {
+            currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0")));
         }
+
+        String mapJSONString = settings.getString("map", "");
+        if (!mapJSONString.equals("")) {
+            try {
+                currencyRates = new HashMap<>();
+                JSONObject ratesJSONObj = new JSONObject(mapJSONString).getJSONObject("rates");
+                for (String currency : cryptoCurrencies) {
+                    currencyRates.put(currency, ratesJSONObj.getDouble(currency));
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        goldInExchange = Double.parseDouble(settings.getString("goldInExchange", "0"));
+
         setupValues();
 
         FloatingActionButton exchangeCryptoFAB = (FloatingActionButton) view.findViewById(R.id.exchangeCryptoBtn);
         exchangeCryptoFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                DialogFragment newFragment = new ExchangeCryptoDialogFragment();
-                newFragment.show(Objects.requireNonNull(getActivity()).getSupportFragmentManager(), "exchange_crypto_dialog");
-            }
-        });
-    }
-
-    private void setupValues(){
-        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    if (document.exists()) {
-                        SharedPreferences.Editor editor = settings.edit();
-                        for (String currency : currencies){
-                            String currValStr = String.valueOf(currencyValues.get(currency));
-                            currencyTexts.get(currency).setText(String.format("%s:\n%s\n",currency,currValStr));
-                            editor.putString(currency+"Value",currValStr);
-                        }
-                        editor.apply();
-                        setupDocListener();
-                    } else {
-                        System.out.println("GETTING INITIAL VALUES COULD NOT FIND USER IN DATABASE");
+                if (!mapJSONString.equals("")) {
+                    DialogFragment newFragment = new ExchangeCryptoDialogFragment();
+                    Bundle args = new Bundle();
+                    for (String currency : cryptoCurrencies) {
+                        args.putDouble(currency + "Rate", currencyRates.get(currency));
+                        args.putDouble(currency + "Val", currencyValues.get(currency));
                     }
+                    args.putDouble("goldInExchange", goldInExchange);
+                    newFragment.setArguments(args);
+                    newFragment.setTargetFragment(fragment,DIALOG_FRAGMENT);
+                    newFragment.show(getActivity().getSupportFragmentManager(), "exchange_crypto_dialog");
                 } else {
-                    System.out.printf("GETTING INITIAL VALUES FAILED WITH EXCEPTION: %s,\n", task.getException());
+                    Toast.makeText(activity, "Exchanging coins is unavailable as today's exchange rates have not been downloaded", Toast.LENGTH_LONG).show();
                 }
             }
         });
     }
 
-    private void setupDocListener(){
-        docRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
-            @Override
-            public void onEvent(@Nullable DocumentSnapshot document,
-                                @Nullable FirebaseFirestoreException e) {
-                if (e != null) {
-                    System.out.printf("LISTEN FOR BALANCE CHANGE FAILED WITH ERROR MESSAGE: %s\n",e);
-                }
+    private void setupValues() {
+        for (String currency : currencies) {
+            double currVal = currencyValues.get(currency);
+            currencyTexts.get(currency).setText(String.format("%s:\n%s\n", currency, currVal));
+        }
+    }
 
-                if (document != null && document.exists()) {
-                    ArrayList<String> changedCurrencies = new ArrayList<>();
-                    for (String currency : currencies){
-                        if (!Objects.equals(document.getDouble(currency), currencyValues.get(currency))){
-                            currencyValues.put(currency,document.getDouble(currency));
-                            changedCurrencies.add(currency);
-                        }
-                    }
-                    SharedPreferences.Editor editor = settings.edit();
-                    for (String currency : changedCurrencies){
-                        String currValStr = String.valueOf(currencyValues.get(currency));
-                        currencyTexts.get(currency).setText(String.format("%s\n: %s\n",currency,currValStr));
-                        editor.putString(currency+"Value",currValStr);
-                    }
-                    editor.apply();
-                } else {
-                    System.out.printf("LISTEN FOR BALANCE CHANGE FOUND NULL DOCUMENT");
-                }
+    public void executeTrade(String currency, double tradeAmount, double exchangeRate) {
+        currencyValues.put(currency, currencyValues.get(currency) - tradeAmount);
+        currencyValues.put("GOLD", currencyValues.get("GOLD") + tradeAmount * exchangeRate);
+        setupValues();
+        goldInExchange -= tradeAmount;
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString(currency, Double.toString(currencyValues.get(currency)));
+        editor.putString("GOLD", Double.toString(currencyValues.get("GOLD")));
+        editor.putString("goldInExchange", Double.toString(goldInExchange));
+        editor.apply();
+        db.runTransaction(new Transaction.Function<Void>() {
+            @Override
+            public Void apply(Transaction transaction) throws FirebaseFirestoreException {
+                DocumentSnapshot snapshot = transaction.get(docRef);
+                // Recalculate new values using value in database in case somehow the local stored
+                // value gets out of sync
+                Map<String, Object> updatedVals = new HashMap<>();
+                updatedVals.put(currency, snapshot.getDouble(currency) - tradeAmount);
+                updatedVals.put("GOLD", snapshot.getDouble("GOLD") + tradeAmount * exchangeRate);
+                updatedVals.put("goldInExchange", snapshot.getDouble("goldInExchange") - tradeAmount);
+                transaction.update(docRef, updatedVals);
+
+                // Success
+                return null;
+            }
+        }).addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                System.out.println("Succeeded in updating database post trade");
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                System.out.println("Failed to update database post trade with exception " + e);
             }
         });
     }
