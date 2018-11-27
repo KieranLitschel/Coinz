@@ -20,7 +20,7 @@
                 android:id="@+id/GOLDText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/GOLDCOLON"
+                android:text=""
                 android:textAlignment="center"
                 android:textSize="30sp" />
 
@@ -36,7 +36,7 @@
                 android:id="@+id/PENYText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/PENYCOLON"
+                android:text=""
                 android:textAlignment="center"
                 android:textSize="30sp" />
         </TableRow>
@@ -51,7 +51,7 @@
                 android:id="@+id/DOLRText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/DOLRCOLON"
+                android:text=""
                 android:textAlignment="center"
                 android:textSize="30sp" />
         </TableRow>
@@ -66,7 +66,7 @@
                 android:id="@+id/SHILText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/SHILCOLON"
+                android:text=""
                 android:textAlignment="center"
                 android:textSize="30sp" />
         </TableRow>
@@ -81,7 +81,7 @@
                 android:id="@+id/QUIDText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/QUIDCOLON"
+                android:text=""
                 android:textAlignment="center"
                 android:textSize="30sp" />
         </TableRow>

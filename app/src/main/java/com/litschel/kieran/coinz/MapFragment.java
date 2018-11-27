@@ -84,7 +84,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         super.onAttach(context);
         activity = context;
         settings = ((MainActivity) getActivity()).settings;
-        db = FirebaseFirestore.getInstance();
+        db = ((MainActivity) getActivity()).db;
     }
 
     @Nullable
