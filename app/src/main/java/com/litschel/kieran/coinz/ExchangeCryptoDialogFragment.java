@@ -27,10 +27,10 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
     private String selectedCurrency;
     private double tradeAmount;
     private double valueInGold;
-    private double goldInExchange;
+    private double coinsRemainingToday;
     private TextView exchangeRateText;
     private TextView valueInGoldText;
-    private TextView goldInExchangeText;
+    private TextView coinsRemainingTodayText;
     private EditText tradeAmountEditText;
 
     @Override
@@ -43,7 +43,7 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
 
         exchangeRateText = view.findViewById(R.id.exchangeRateText);
         valueInGoldText = view.findViewById(R.id.valueInGold);
-        goldInExchangeText = view.findViewById(R.id.coinsRemainingToday);
+        coinsRemainingTodayText = view.findViewById(R.id.coinsRemainingToday);
         tradeAmountEditText = view.findViewById(R.id.tradeAmountEditText);
 
         Bundle args = getArguments();
@@ -54,9 +54,9 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
             exchangeRates.put(currency, args.getDouble(currency + "Rate"));
             currencyVals.put(currency, args.getDouble(currency + "Val"));
         }
-        goldInExchange = args.getDouble("goldInExchange");
-        goldInExchangeText.setText(String.format("Remaining coins bank will accept today:\n%s",
-                goldInExchange));
+        coinsRemainingToday = args.getDouble("coinsRemainingToday");
+        coinsRemainingTodayText.setText(String.format("Remaining coins bank will accept today:\n%s",
+                coinsRemainingToday));
 
         tradeAmount = 0;
 
@@ -95,13 +95,13 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
                         tradeAmount = currencyVals.get(selectedCurrency);
                     }
                     // Make sure the user hasn't asked to trade more currency than the bank will accept
-                    if (goldInExchange - tradeAmount < 0) {
-                        tradeAmountEditText.setText(Double.toString(goldInExchange));
-                        tradeAmount = goldInExchange;
+                    if (coinsRemainingToday - tradeAmount < 0) {
+                        tradeAmountEditText.setText(Double.toString(coinsRemainingToday));
+                        tradeAmount = coinsRemainingToday;
                     }
                 }
-                goldInExchangeText.setText(String.format("Remaining crypto bank will accept today:\n%s",
-                        goldInExchange - tradeAmount));
+                coinsRemainingTodayText.setText(String.format("Remaining crypto bank will accept today:\n%s",
+                        coinsRemainingToday - tradeAmount));
                 setvalueInGold();
             }
 

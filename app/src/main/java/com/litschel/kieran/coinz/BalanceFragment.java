@@ -1,8 +1,6 @@
 package com.litschel.kieran.coinz;
 
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -16,35 +14,27 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
-import com.google.firebase.firestore.FirebaseFirestoreException;
-import com.google.firebase.firestore.Transaction;
-
-public class BalanceFragment extends Fragment {
+public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallback {
     private Context activity;
     private FirebaseFirestore db;
     private SharedPreferences settings;
-    private DocumentReference docRef;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
     private final String[] cryptoCurrencies = new String[]{"PENY", "DOLR", "SHIL", "QUID"};
     private HashMap<String, TextView> currencyTexts;
     private HashMap<String, Double> currencyValues;
     private HashMap<String, Double> currencyRates;
-    private double goldInExchange;
+    private double coinsRemainingToday;
     private final int DIALOG_FRAGMENT = 1;
     private BalanceFragment fragment = this;
+    private boolean tradeExecuting = false;
 
     @Override
     public void onAttach(Context context) {
@@ -52,7 +42,6 @@ public class BalanceFragment extends Fragment {
         activity = context;
         db = ((MainActivity) Objects.requireNonNull(getActivity())).db;
         settings = ((MainActivity) getActivity()).settings;
-        docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
     }
 
     @Nullable
@@ -72,7 +61,8 @@ public class BalanceFragment extends Fragment {
         }};
         currencyValues = new HashMap<>();
         for (String currency : currencies) {
-            currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0")));
+            currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0"))
+                    + Double.parseDouble(settings.getString(currency + "Delta", "0")));
         }
 
         String mapJSONString = settings.getString("map", "");
@@ -88,7 +78,7 @@ public class BalanceFragment extends Fragment {
             }
         }
 
-        goldInExchange = Double.parseDouble(settings.getString("goldInExchange", "0"));
+        coinsRemainingToday = Double.parseDouble(settings.getString("coinsRemainingToday", "0"));
 
         setupValues();
 
@@ -97,16 +87,20 @@ public class BalanceFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 if (!mapJSONString.equals("")) {
-                    DialogFragment newFragment = new ExchangeCryptoDialogFragment();
-                    Bundle args = new Bundle();
-                    for (String currency : cryptoCurrencies) {
-                        args.putDouble(currency + "Rate", currencyRates.get(currency));
-                        args.putDouble(currency + "Val", currencyValues.get(currency));
+                    if (!tradeExecuting) {
+                        DialogFragment newFragment = new ExchangeCryptoDialogFragment();
+                        Bundle args = new Bundle();
+                        for (String currency : cryptoCurrencies) {
+                            args.putDouble(currency + "Rate", currencyRates.get(currency));
+                            args.putDouble(currency + "Val", currencyValues.get(currency));
+                        }
+                        args.putDouble("coinsRemainingToday", coinsRemainingToday);
+                        newFragment.setArguments(args);
+                        newFragment.setTargetFragment(fragment, DIALOG_FRAGMENT);
+                        newFragment.show(getActivity().getSupportFragmentManager(), "exchange_crypto_dialog");
+                    } else {
+                        Toast.makeText(activity, "Previous exchange being finalized, please wait.", Toast.LENGTH_LONG).show();
                     }
-                    args.putDouble("goldInExchange", goldInExchange);
-                    newFragment.setArguments(args);
-                    newFragment.setTargetFragment(fragment,DIALOG_FRAGMENT);
-                    newFragment.show(getActivity().getSupportFragmentManager(), "exchange_crypto_dialog");
                 } else {
                     Toast.makeText(activity, "Exchanging coins is unavailable as today's exchange rates have not been downloaded", Toast.LENGTH_LONG).show();
                 }
@@ -115,46 +109,32 @@ public class BalanceFragment extends Fragment {
     }
 
     private void setupValues() {
-        for (String currency : currencies) {
-            double currVal = currencyValues.get(currency);
-            currencyTexts.get(currency).setText(String.format("%s:\n%s\n", currency, currVal));
-        }
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                for (String currency : currencies) {
+                    double currVal = currencyValues.get(currency);
+                    currencyTexts.get(currency).setText(String.format("%s:\n%s\n", currency, currVal));
+                }
+            }
+        });
     }
 
     public void executeTrade(String currency, double tradeAmount, double exchangeRate) {
-        currencyValues.put(currency, currencyValues.get(currency) - tradeAmount);
-        currencyValues.put("GOLD", currencyValues.get("GOLD") + tradeAmount * exchangeRate);
-        setupValues();
-        goldInExchange -= tradeAmount;
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString(currency, Double.toString(currencyValues.get(currency)));
-        editor.putString("GOLD", Double.toString(currencyValues.get("GOLD")));
-        editor.putString("goldInExchange", Double.toString(goldInExchange));
-        editor.apply();
-        db.runTransaction(new Transaction.Function<Void>() {
-            @Override
-            public Void apply(Transaction transaction) throws FirebaseFirestoreException {
-                DocumentSnapshot snapshot = transaction.get(docRef);
-                // Recalculate new values using value in database in case somehow the local stored
-                // value gets out of sync
-                Map<String, Object> updatedVals = new HashMap<>();
-                updatedVals.put(currency, snapshot.getDouble(currency) - tradeAmount);
-                updatedVals.put("GOLD", snapshot.getDouble("GOLD") + tradeAmount * exchangeRate);
-                updatedVals.put("goldInExchange", snapshot.getDouble("goldInExchange") - tradeAmount);
-                transaction.update(docRef, updatedVals);
+        tradeExecuting = true;
+        new Thread(new ExecuteTradeTask(this, ((MainActivity) getActivity()), db, settings, currencyValues, coinsRemainingToday, currency, tradeAmount, exchangeRate)).start();
+    }
 
-                // Success
-                return null;
-            }
-        }).addOnSuccessListener(new OnSuccessListener<Void>() {
+    @Override
+    public void onTradeComplete(double coinsRemainingToday) {
+        this.coinsRemainingToday = coinsRemainingToday;
+        tradeExecuting = false;
+        setupValues();
+        getActivity().runOnUiThread(new Runnable() {
             @Override
-            public void onSuccess(Void aVoid) {
-                System.out.println("Succeeded in updating database post trade");
-            }
-        }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                System.out.println("Failed to update database post trade with exception " + e);
+            public void run() {
+                Toast.makeText(activity, "Trade executed successfully, balances have been updated.", Toast.LENGTH_LONG)
+                        .show();
             }
         });
     }

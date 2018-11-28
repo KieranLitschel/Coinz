@@ -17,7 +17,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,8 +29,9 @@ public class CoinsUpdateTask implements Runnable {
     private String uid;
     private ArrayList<Marker> markersToRemove;
     private SharedPreferences settings;
+    private MainActivity activity;
 
-    CoinsUpdateTask(CoinsUpdatedCallback context, StampedLock mapUpdateLock, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+    CoinsUpdateTask(CoinsUpdatedCallback context, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
         this.mapUpdateLock = mapUpdateLock;
@@ -39,6 +39,7 @@ public class CoinsUpdateTask implements Runnable {
         this.uid = uid;
         this.markersToRemove = markersToRemove;
         this.settings = settings;
+        this.activity = activity;
     }
 
     public void run() {
@@ -88,40 +89,62 @@ public class CoinsUpdateTask implements Runnable {
             // Use transactions as opposed to just querying the database and then writing it as transactions
             // ensure no writes have occured to the fields since they were read, preventing potential
             // synchronization errors
-            db.runTransaction(new Transaction.Function<Void>() {
-                @Override
-                public Void apply(Transaction transaction) throws FirebaseFirestoreException {
-                    DocumentSnapshot snapshot = transaction.get(docRef);
-                    Map<String, Object> newValues = new HashMap<>();
-                    for (String currency : currencies) {
-                        newValues.put(currency, snapshot.getDouble(currency));
-                    }
-                    for (Marker marker : markerDetails.keySet()) {
-                        String currency = markerDetails.get(marker)[0];
-                        Double value = Double.parseDouble(markerDetails.get(marker)[1]);
-                        newValues.put(currency, (double) newValues.get(currency) + value);
-                    }
-                    SharedPreferences.Editor editor = settings.edit();
-                    for (String currency : currencies) {
-                        editor.putString(currency,Double.toString((double) newValues.get(currency)));
-                    }
-                    editor.apply();
-                    transaction.update(docRef, newValues);
+            if (activity.isNetworkAvailable()){
+                db.runTransaction(new Transaction.Function<Void>() {
+                    @Override
+                    public Void apply(Transaction transaction) throws FirebaseFirestoreException {
+                        DocumentSnapshot snapshot = transaction.get(docRef);
+                        Map<String, Object> newValues = new HashMap<>();
+                        for (String currency : currencies) {
+                            newValues.put(currency, snapshot.getDouble(currency));
+                        }
+                        for (Marker marker : markerDetails.keySet()) {
+                            String currency = markerDetails.get(marker)[0];
+                            Double value = Double.parseDouble(markerDetails.get(marker)[1]);
+                            newValues.put(currency, (double) newValues.get(currency) + value);
+                        }
+                        SharedPreferences.Editor editor = settings.edit();
+                        for (String currency : currencies) {
+                            editor.putString(currency,Double.toString((double) newValues.get(currency)));
+                        }
+                        editor.apply();
+                        transaction.update(docRef, newValues);
 
-                    // Success
-                    return null;
+                        // Success
+                        return null;
+                    }
+                }).addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
+                    }
+                }).addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        System.out.println("Task failed with exception " + e);
+                    }
+                });
+            } else {
+                HashMap<String, Double> newDeltas = new HashMap<>();
+                for (String currency : currencies) {
+                    newDeltas.put(currency, Double.parseDouble(settings.getString(currency+"Delta","0")));
                 }
-            }).addOnSuccessListener(new OnSuccessListener<Void>() {
-                @Override
-                public void onSuccess(Void aVoid) {
-                    context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
+                for (Marker marker : markerDetails.keySet()) {
+                    String currency = markerDetails.get(marker)[0];
+                    Double value = Double.parseDouble(markerDetails.get(marker)[1]);
+                    newDeltas.put(currency, newDeltas.get(currency) + value);
                 }
-            }).addOnFailureListener(new OnFailureListener() {
-                @Override
-                public void onFailure(@NonNull Exception e) {
-                    System.out.println("Task failed with exception " + e);
+                SharedPreferences.Editor editor = settings.edit();
+                for (String currency : currencies){
+                    editor.putString(currency+"Delta",Double.toString(newDeltas.get(currency)));
                 }
-            });
+                editor.apply();
+                if (!activity.waitingToUpdateCoins){
+                    activity.waitingToUpdateCoins = true;
+                    activity.setToUpdateCoinsOnInternet();
+                }
+                context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
+            }
         } else {
             mapUpdateLock.unlockWrite(lockStamp);
             System.out.println("COINS UPDATE TASK RELEASED LOCK");

@@ -70,8 +70,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private LocationManager locationManager;
     private MapView mapView;
     private MapboxMap map;
-    private StampedLock mapUpdateLock = new StampedLock();
     private ExecutorService mapUpdateExecutor;
+    private StampedLock mapUpdateLock;
     private SharedPreferences settings;
     private FirebaseFirestore db;
     private ArrayList<Marker> markers;
@@ -86,6 +86,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         activity = context;
         settings = ((MainActivity) getActivity()).settings;
         db = ((MainActivity) getActivity()).db;
+        mapUpdateLock = ((MainActivity) getActivity()).mapUpdateLock;
     }
 
     @Nullable
@@ -245,7 +246,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
         // Use an executor to avoid having to create new threads which is expensive
-        mapUpdateExecutor.submit(new CoinsUpdateTask(this, mapUpdateLock, db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
+        mapUpdateExecutor.submit(new CoinsUpdateTask(this, mapUpdateLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
     }
 
     private void setToUpdateAtMidnight() {
@@ -302,7 +303,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
         if (!((MainActivity) getActivity()).isNetworkAvailable()) {
-            setToUpdateOnInternet();
+            setToUpdateMapOnInternet();
             mapUpdateLock.unlockWrite(lockStamp);
             // Similarly to for map.clear, as this changes a UI element we must call it on the UI thread
             getActivity().runOnUiThread(new Runnable() {
@@ -317,7 +318,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
     }
 
-    private void setToUpdateOnInternet() {
+    private void setToUpdateMapOnInternet() {
         System.out.println("CREATED TIMER TASK");
         TimerTask mTtInternet = new TimerTask() {
             public void run() {
@@ -328,7 +329,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         checkForMapUpdate();
                     } else {
                         System.out.println("TIMER TASK FOUND NO INTERNET");
-                        setToUpdateOnInternet();
+                        setToUpdateMapOnInternet();
                     }
                 });
             }
@@ -402,11 +403,11 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                     if (document.exists()) {
                         String mapJSONString = document.getString("map");
                         String lastDownloadedDate = document.getString("lastDownloadDate");
-                        double goldInExchange = document.getDouble("goldInExchange");
+                        double coinsRemainingToday = document.getDouble("coinsRemainingToday");
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString("map", mapJSONString);
                         editor.putString("lastDownloadDate", lastDownloadedDate);
-                        editor.putString("goldInExchange", Double.toString(goldInExchange));
+                        editor.putString("coinsRemainingToday", Double.toString(coinsRemainingToday));
                         for (String currency : currencies) {
                             editor.putString(currency, Double.toString(document.getDouble(currency)));
                         }
@@ -439,7 +440,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         initialMapSetup();
                     } else {
                         System.out.println("TIMER TASK FOUND NO INTERNET");
-                        setToUpdateOnInternet();
+                        setToUpdateMapOnInternet();
                     }
                 });
             }
@@ -455,7 +456,14 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         Map<String, Object> mapData = new HashMap<>();
         mapData.put("lastDownloadDate", LocalDate.now().toString());
         mapData.put("map", mapJSONString);
-        mapData.put("goldInExchange", 25);
+        LocalDate lostConnectionDate = LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString()));
+        double coinsRemainingTodayDelta;
+        if (lostConnectionDate.isEqual(LocalDate.now())) {
+            coinsRemainingTodayDelta = Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0"));
+        } else {
+            coinsRemainingTodayDelta = 0;
+        }
+        mapData.put("coinsRemainingToday", 25 - coinsRemainingTodayDelta);
         db.collection("users").document(((MainActivity) getActivity()).uid)
                 .update(mapData)
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
@@ -464,7 +472,9 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString("map", mapJSONString);
                         editor.putString("lastDownloadDate", LocalDate.now().toString());
-                        editor.putString("goldInExchange", "25");
+                        editor.putString("coinsRemainingToday", Double.toString(25 - coinsRemainingTodayDelta));
+                        editor.remove("lostConnectionDate");
+                        editor.remove("coinsRemainingTodayDelta");
                         editor.apply();
                         System.out.println("UPDATED MAP IN FIREBASE SUCCESSFULLY");
                         updateMarkers(mapJSONString, lockStamp);
@@ -519,7 +529,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void onCoinsUpdated(long lockStamp, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
         ArrayList<String[]> coinsCollected = new ArrayList<>();
         for (Marker marker : markerDetails.keySet()) {
-            map.removeMarker(marker);
+            // We use runOnUiThread here as this method is called from outside the UI thread
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    map.removeMarker(marker);
+                }
+            });
             markers.remove(marker);
             coinsCollected.add(markerDetails.get(marker));
             System.out.println("Removed marker " + marker.getTitle());
@@ -527,8 +543,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (coinsCollected.size() == 1) {
             String currency = coinsCollected.get(0)[0];
             String value = coinsCollected.get(0)[1];
-            Toast.makeText(activity, "Collected " + value
-                    + " " + currency, Toast.LENGTH_LONG).show();
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(activity, "Collected " + value
+                            + " " + currency, Toast.LENGTH_LONG).show();
+                }
+            });
         } else {
             StringBuilder messageBuilder = new StringBuilder();
             messageBuilder.append("Collected ");
@@ -552,32 +573,45 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             messageBuilder.append(value);
             messageBuilder.append(" ");
             messageBuilder.append(currency);
-            Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show();
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show();
+                }
+            });
         }
         String mapJSONString = mapJSON.toString();
-        Map<String, Object> mapData = new HashMap<>();
-        mapData.put("map", mapJSONString);
-        db.collection("users").document(((MainActivity) getActivity()).uid)
-                .update(mapData)
-                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                    @Override
-                    public void onSuccess(Void aVoid) {
-                        SharedPreferences.Editor editor = settings.edit();
-                        editor.putString("map", mapJSONString);
-                        editor.putString("lastDownloadDate", LocalDate.now().toString());
-                        editor.apply();
-                        mapUpdateLock.unlockWrite(lockStamp);
-                        System.out.println("ON COINS UPDATED RELEASED LOCK");
-                    }
-                })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
-                        mapUpdateLock.unlockWrite(lockStamp);
-                        System.out.println("ON COINS UPDATED RELEASED LOCK");
-                    }
-                });
+        if (((MainActivity) getActivity()).isNetworkAvailable()) {
+            Map<String, Object> mapData = new HashMap<>();
+            mapData.put("map", mapJSONString);
+            db.collection("users").document(((MainActivity) getActivity()).uid)
+                    .update(mapData)
+                    .addOnSuccessListener(new OnSuccessListener<Void>() {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            SharedPreferences.Editor editor = settings.edit();
+                            editor.putString("map", mapJSONString);
+                            editor.apply();
+                            mapUpdateLock.unlockWrite(lockStamp);
+                            System.out.println("ON COINS UPDATED RELEASED LOCK");
+                        }
+                    })
+                    .addOnFailureListener(new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
+                            mapUpdateLock.unlockWrite(lockStamp);
+                            System.out.println("ON COINS UPDATED RELEASED LOCK");
+                        }
+                    });
+        } else {
+            // If offline we only update the map locally
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("map", mapJSONString);
+            editor.apply();
+            mapUpdateLock.unlockWrite(lockStamp);
+            System.out.println("ON COINS UPDATED RELEASED LOCK");
+        }
     }
 
     @Override

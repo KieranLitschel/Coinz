@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
@@ -40,9 +41,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.locks.StampedLock;
 
-public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback {
+public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback, CoinsUpdateWithDeltaCallback {
 
+    private MainActivity activity = this;
     public SharedPreferences settings;
     private final String settingsFile = "SettingsFile";
     private static final int RC_SIGN_IN = 9000;
@@ -52,6 +57,11 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private NavigationView navigationView;
     private FragmentManager fragmentManager;
     private Fragment currentFragment = null;
+    private Timer myTimer;
+    private Handler myTimerTaskHandler;
+    public StampedLock mapUpdateLock = new StampedLock();
+    public Boolean waitingToUpdateCoins = false;
+    private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -176,6 +186,12 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 noInternetFragment.show(getSupportFragmentManager(), "no_internet_dialog");
             }
         } else {
+            for (String currency : currencies) {
+                if (!settings.getString(currency + "Delta", "").equals("")) {
+                    waitingToUpdateCoins = true;
+                    break;
+                }
+            }
             setDefaultFragment();
         }
     }
@@ -241,14 +257,12 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
     private void setFirstTimeUser() {
         Map<String, Object> user_defaults = new HashMap<>();
-        user_defaults.put("DOLR", 0.0);
-        user_defaults.put("GOLD", 0.0);
-        user_defaults.put("PENY", 0.0);
-        user_defaults.put("QUID", 0.0);
-        user_defaults.put("SHIL", 0.0);
+        for (String currency : currencies) {
+            user_defaults.put(currency, 0.0);
+        }
         user_defaults.put("map", "");
         user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
-        user_defaults.put("goldInExchange",0.0);
+        user_defaults.put("coinsRemainingToday", 0.0);
 
         db.collection("users").document(uid)
                 .set(user_defaults)
@@ -270,12 +284,40 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private void logout() {
         fragmentManager.beginTransaction().remove(currentFragment).commit();
         SharedPreferences.Editor editor = settings.edit();
-        editor.putString("uid", "");
-        editor.putString("map", "");
-        editor.putString("lastDownloadDate", "");
+        editor.clear();
         editor.apply();
         uid = "";
         signIn();
+    }
+
+    public void setToUpdateCoinsOnInternet() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(activity, "Could not connect to the internet, progress offline will be updated in the cloud when connection is established.", Toast.LENGTH_LONG).show();
+            }
+        });
+        updateCoinsOnInternet();
+    }
+
+    private void updateCoinsOnInternet() {
+        System.out.println("CREATED UPDATE COINS TIMER TASK");
+        TimerTask mTtInternet = new TimerTask() {
+            public void run() {
+                myTimerTaskHandler.post(() -> {
+                    System.out.println("UPDATE COINS TIMER TASK TRIGGERED");
+                    if (isNetworkAvailable()) {
+                        System.out.println("UPDATE COINS TIMER TASK FOUND INTERNET");
+                        new Thread(new CoinsUpdateWithDeltaTask(activity, db, settings, mapUpdateLock, uid)).start();
+                    } else {
+                        System.out.println("UPDATE COINS TIMER TASK FOUND NO INTERNET");
+                        updateCoinsOnInternet();
+                    }
+                });
+            }
+        };
+        System.out.println("UPDATE COINS TIMER TASK SCHEDULED");
+        myTimer.schedule(mTtInternet, 5000);
     }
 
     @Override
@@ -302,5 +344,37 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     public void closeApp() {
         finish();
         System.exit(0);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        myTimer = new Timer();
+        myTimerTaskHandler = new Handler();
+        // If onStart called, then that means onStop was called prior to it, meaning the timer will
+        // have been purged, meaning we need to restart the timer for looking for the internet, which
+        // we do below
+        if (waitingToUpdateCoins) {
+            setToUpdateCoinsOnInternet();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        myTimer.cancel();
+        myTimer.purge();
+    }
+
+    @Override
+    public void onCoinsUpdateWithDeltaComplete(long lockStamp) {
+        waitingToUpdateCoins = false;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(activity, "Progress offline has been updated in the cloud.", Toast.LENGTH_LONG).show();
+            }
+        });
+        mapUpdateLock.unlockWrite(lockStamp);
     }
 }
