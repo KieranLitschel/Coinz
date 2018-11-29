@@ -5,6 +5,7 @@ import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -16,24 +17,43 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class GiftCryptoDialogFragment extends DialogFragment {
 
     private final String[] cryptoCurrencies = new String[]{"PENY", "DOLR", "SHIL", "QUID"};
+    private FirebaseFirestore db;
+    private String uid;
     private HashMap<String, Double> currencyVals;
     private EditText giftAmountEditText;
     private EditText recipientEditText;
     private TextView errorText;
     private double giftAmount;
     private String selectedCurrency;
+    private AlertDialog dialog;
     private Button positiveBtn;
 
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        db = FirebaseFirestore.getInstance();
         // Get the layout inflater
         LayoutInflater inflater = getActivity().getLayoutInflater();
 
@@ -48,6 +68,8 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         String username = args.getString("username");
         ((TextView) view.findViewById(R.id.usernameText)).setText(
                 String.format("Your username is:\n%s", username));
+
+        uid = args.getString("uid");
 
         currencyVals = new HashMap<>();
         for (String currency : cryptoCurrencies) {
@@ -112,7 +134,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                     }
                 });
 
-        AlertDialog dialog = builder.create();
+        dialog = builder.create();
 
         view.findViewById(R.id.changeUsernameBtn).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -134,7 +156,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                         if (!recipent.equals("")) {
                             positiveBtn.setEnabled(false);
                             errorText.setVisibility(View.GONE);
-                            trySendGift(recipent, selectedCurrency, giftAmount);
+                            findRecipientByUid(recipent, selectedCurrency, giftAmount);
                         }
                     }
                 });
@@ -144,7 +166,72 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         return dialog;
     }
 
-    private void trySendGift(String recipent, String selectedCurrency, double giftAmount) {
+    private void findRecipientByUid(String recipent, String selectedCurrency, double giftAmount) {
+        db.collection("users")
+                .whereEqualTo("username", recipent)
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if (task.getResult().isEmpty()) {
+                            System.out.println("RECIPIENT NOT FOUND IN DATABASE");
+                            errorText.setVisibility(View.VISIBLE);
+                            positiveBtn.setEnabled(true);
+                        } else {
+                            DocumentSnapshot snapshot = task.getResult().getDocuments().get(0);
+                            String recipientUid = snapshot.getString("uid");
+                            sendGiftToRecipient(recipientUid, selectedCurrency, giftAmount);
+                        }
+                    }
+                });
+    }
 
+    private void sendGiftToRecipient(String recipientUid, String selectedCurrency, double giftAmount) {
+        final DocumentReference senderRef = db.collection("users").document(uid);
+        final DocumentReference recipientRef = db.collection("users").document(recipientUid);
+        final DocumentReference giftRef = db.collection("gifts").document();
+        db.runTransaction(new Transaction.Function<Void>() {
+            @Nullable
+            @Override
+            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
+                DocumentSnapshot senderSnapshot = transaction.get(senderRef);
+                DocumentSnapshot recipientSnapshot = transaction.get(recipientRef);
+
+                transaction.update(senderRef, selectedCurrency, senderSnapshot.getDouble(selectedCurrency) - giftAmount);
+
+                Map<String, Object> giftInfo = new HashMap<>();
+                giftInfo.put("senderUid", uid);
+                giftInfo.put("recipientUid", recipientUid);
+                giftInfo.put("currency", selectedCurrency);
+                giftInfo.put("amount", giftAmount);
+
+                transaction.set(giftRef, giftInfo);
+
+                Map<String, Object> recipientInfo = new HashMap<>();
+                recipientInfo.put("gifts", ((List<String>) recipientSnapshot.get("gifts")).add(giftRef.getId()));
+                recipientInfo.put(selectedCurrency, recipientSnapshot.getDouble(selectedCurrency) + giftAmount);
+
+                transaction.update(recipientRef, recipientInfo);
+
+                return null;
+            }
+        }).addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                System.out.printf("FAILED TO SEND GIFT WITH EXCEPTION:\n%s\n", e);
+                dialog.dismiss();
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getActivity(), "Something went wrong when sending the gift, please try again.", Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
     }
 }

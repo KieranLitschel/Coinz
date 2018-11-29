@@ -11,7 +11,6 @@ import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -61,7 +60,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.StampedLock;
 
-public class MapFragment extends Fragment implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, CoinsUpdatedCallback {
+public class MapFragment extends Fragment implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, RemoveMarkersCallback {
 
     private Context activity;
     private PermissionsManager permissionsManager;
@@ -246,7 +245,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
         // Use an executor to avoid having to create new threads which is expensive
-        mapUpdateExecutor.submit(new CoinsUpdateTask(this, mapUpdateLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
+        mapUpdateExecutor.submit(new RemoveMarkersTask(this, mapUpdateLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
     }
 
     private void setToUpdateAtMidnight() {

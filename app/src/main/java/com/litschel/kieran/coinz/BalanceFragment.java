@@ -117,11 +117,12 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                 if (((MainActivity) getActivity()).isNetworkAvailable()) {
                     String username = settings.getString("username", "");
                     if (username.equals("")) {
-                        updateUsernameFragment(username,true);
+                        updateUsernameFragment(username, true);
                     } else {
                         DialogFragment newFragment = new GiftCryptoDialogFragment();
                         Bundle args = new Bundle();
-                        args.putString("username",username);
+                        args.putString("uid", uid);
+                        args.putString("username", username);
                         for (String currency : cryptoCurrencies) {
                             args.putDouble(currency + "Val", currencyValues.get(currency));
                         }
@@ -167,7 +168,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         });
     }
 
-    public void updateUsernameFragment(String username, boolean isNewUser){
+    public void updateUsernameFragment(String username, boolean isNewUser) {
         // Recheck internet connection here even though checked in gift FAB as this can be called from
         // GiftCryptoDialogFragment too
         if (((MainActivity) getActivity()).isNetworkAvailable()) {

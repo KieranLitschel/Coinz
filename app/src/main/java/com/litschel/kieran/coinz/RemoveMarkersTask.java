@@ -22,8 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.StampedLock;
 
-public class CoinsUpdateTask implements Runnable {
-    private CoinsUpdatedCallback context;
+public class RemoveMarkersTask implements Runnable {
+    private RemoveMarkersCallback context;
     private StampedLock mapUpdateLock;
     private FirebaseFirestore db;
     private String uid;
@@ -31,7 +31,7 @@ public class CoinsUpdateTask implements Runnable {
     private SharedPreferences settings;
     private MainActivity activity;
 
-    CoinsUpdateTask(CoinsUpdatedCallback context, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+    RemoveMarkersTask(RemoveMarkersCallback context, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
         this.mapUpdateLock = mapUpdateLock;
@@ -152,6 +152,6 @@ public class CoinsUpdateTask implements Runnable {
     }
 }
 
-interface CoinsUpdatedCallback {
+interface RemoveMarkersCallback {
     void onCoinsUpdated(long lockStamp, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON);
 }
