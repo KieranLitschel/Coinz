@@ -80,7 +80,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                     public void onClick(View view) {
                         System.out.println("CHANGE USERNAME BUTTON CLICKED");
                         String desiredUsername = usernameEditText.getText().toString();
-                        if (!desiredUsername.equals("")){
+                        if (!desiredUsername.equals("")) {
                             if (desiredUsername.equals(username)) {
                                 errorText.setVisibility(View.GONE);
                                 errorText.setText(R.string.username_same);
@@ -101,9 +101,9 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
     }
 
     private void trySetUsername(String desiredUsername) {
-        db.runTransaction(new Transaction.Function<Boolean>() {
+        db.runTransaction(new Transaction.Function<Void>() {
             @Override
-            public Boolean apply(Transaction transaction) throws FirebaseFirestoreException {
+            public Void apply(Transaction transaction) throws FirebaseFirestoreException {
 
                 // Here we use a usernames document to keep track of username changes to ensure that
                 // there is no risk of two users having the same username if they both change to it at the same time
@@ -118,7 +118,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
 
                 for (String otherUid : usernamesRecord.getData().keySet()) {
                     if (usernamesRecord.getString(otherUid).equals(desiredUsername)) {
-                        return false;
+                        throw new FirebaseFirestoreException("USERNAME ALREADY EXISTS IN DB", FirebaseFirestoreException.Code.ABORTED);
                     }
                 }
 
@@ -128,54 +128,54 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                         "username", desiredUsername);
 
                 // Success
-                return true;
+                return null;
             }
-        }).addOnSuccessListener(new OnSuccessListener<Boolean>() {
+        }).addOnSuccessListener(new OnSuccessListener<Void>() {
             @Override
-            public void onSuccess(Boolean usernameUpdated) {
-                if (!usernameUpdated) {
-                    System.out.println("FOUND USERNAME IN USE");
-                    errorText.setText(R.string.username_same);
-                    errorText.setVisibility(View.VISIBLE);
-                    positiveBtn.setEnabled(true);
-                } else {
-                    System.out.println("SUCCEEDED IN CHANGING USERNAME");
-                    dialog.dismiss();
-                    getActivity().runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            String text;
-                            if (isNewUser){
-                                text = String.format("Succeeded in setting username to %s", desiredUsername);
-                            } else {
-                                text = String.format("Succeeded in changing username to %s", desiredUsername);
-                            }
-                            Toast.makeText(getActivity(), text, Toast.LENGTH_LONG).show();
-                        }
-                    });
-                    SharedPreferences settings = ((MainActivity) getActivity()).settings;
-                    SharedPreferences.Editor editor = settings.edit();
-                    editor.putString("username", username);
-                    editor.apply();
-                }
-            }
-        }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                System.out.printf("FAILED IN CHECKING USERNAME USERNAME VALID WITH EXCEPTION:\n%s\n",e);
+            public void onSuccess(Void aVoid) {
+                System.out.println("SUCCEEDED IN CHANGING USERNAME");
                 dialog.dismiss();
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         String text;
-                        if (isNewUser){
-                            text = "Something went wrong while trying to set your new username, please try again.";
+                        if (isNewUser) {
+                            text = String.format("Succeeded in setting username to %s", desiredUsername);
                         } else {
-                            text = "Something went wrong while trying to create your username, please try again.";
+                            text = String.format("Succeeded in changing username to %s", desiredUsername);
                         }
                         Toast.makeText(getActivity(), text, Toast.LENGTH_LONG).show();
                     }
                 });
+                SharedPreferences settings = ((MainActivity) getActivity()).settings;
+                SharedPreferences.Editor editor = settings.edit();
+                editor.putString("username", username);
+                editor.apply();
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                if (e.getMessage().equals("USERNAME ALREADY EXISTS IN DB")) {
+                    System.out.println("FOUND USERNAME IN USE");
+                    errorText.setText(R.string.username_in_use);
+                    errorText.setVisibility(View.VISIBLE);
+                    positiveBtn.setEnabled(true);
+                } else {
+                    System.out.printf("FAILED IN CHECKING USERNAME USERNAME VALID WITH EXCEPTION:\n%s\n", e);
+                    dialog.dismiss();
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            String text;
+                            if (isNewUser) {
+                                text = "Something went wrong while trying to set your new username, please try again.";
+                            } else {
+                                text = "Something went wrong while trying to create your username, please try again.";
+                            }
+                            Toast.makeText(getActivity(), text, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
             }
         });
 
