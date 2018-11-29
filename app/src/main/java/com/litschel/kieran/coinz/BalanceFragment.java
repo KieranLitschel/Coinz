@@ -22,7 +22,7 @@ import org.json.JSONObject;
 import java.util.HashMap;
 import java.util.Objects;
 
-public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallback {
+public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallback, CoinsUpdateTaskCallback {
     private Context activity;
     private FirebaseFirestore db;
     private SharedPreferences settings;
@@ -62,10 +62,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
             put("QUID", (view.findViewById(R.id.QUIDText)));
         }};
         currencyValues = new HashMap<>();
-        for (String currency : currencies) {
-            currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0"))
-                    + Double.parseDouble(settings.getString(currency + "Delta", "0")));
-        }
+        updateCurrencyValues();
 
         String mapJSONString = settings.getString("map", "");
         if (!mapJSONString.equals("")) {
@@ -137,6 +134,13 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         });
     }
 
+    private void updateCurrencyValues(){
+        for (String currency : currencies) {
+            currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0"))
+                    + Double.parseDouble(settings.getString(currency + "Delta", "0")));
+        }
+    }
+
     private void setupValues() {
         getActivity().runOnUiThread(new Runnable() {
             @Override
@@ -187,5 +191,11 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                 }
             });
         }
+    }
+
+    @Override
+    public void coinsUpdateTaskComplete() {
+        updateCurrencyValues();
+        setupValues();
     }
 }
