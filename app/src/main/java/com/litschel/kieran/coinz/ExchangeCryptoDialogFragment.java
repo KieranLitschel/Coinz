@@ -40,7 +40,7 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
         View view = inflater.inflate(R.layout.dialog_exchange_crypto, null);
 
         exchangeRateText = view.findViewById(R.id.exchangeRateText);
-        valueInGoldText = view.findViewById(R.id.usernameExistsText);
+        valueInGoldText = view.findViewById(R.id.offeredGoldText);
         coinsRemainingTodayText = view.findViewById(R.id.coinsRemainingToday);
         tradeAmountEditText = view.findViewById(R.id.tradeAmountEditText);
 

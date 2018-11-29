@@ -14,10 +14,6 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONException;
@@ -121,13 +117,17 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                 if (((MainActivity) getActivity()).isNetworkAvailable()) {
                     String username = settings.getString("username", "");
                     if (username.equals("")) {
-                        DialogFragment newFragment = new ChangeUsernameDialogFragment();
+                        updateUsernameFragment(username,true);
+                    } else {
+                        DialogFragment newFragment = new GiftCryptoDialogFragment();
                         Bundle args = new Bundle();
-                        args.putBoolean("isNewUser", true);
-                        args.putString("username", username);
-                        args.putString("uid", uid);
+                        args.putString("username",username);
+                        for (String currency : cryptoCurrencies) {
+                            args.putDouble(currency + "Val", currencyValues.get(currency));
+                        }
                         newFragment.setArguments(args);
-                        newFragment.show(getActivity().getSupportFragmentManager(), "create_username_dialog");
+                        newFragment.setTargetFragment(fragment, DIALOG_FRAGMENT);
+                        newFragment.show(getActivity().getSupportFragmentManager(), "gift_crypto_dialog");
                     }
                 } else {
                     Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show();
@@ -165,5 +165,26 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                         .show();
             }
         });
+    }
+
+    public void updateUsernameFragment(String username, boolean isNewUser){
+        // Recheck internet connection here even though checked in gift FAB as this can be called from
+        // GiftCryptoDialogFragment too
+        if (((MainActivity) getActivity()).isNetworkAvailable()) {
+            DialogFragment newFragment = new ChangeUsernameDialogFragment();
+            Bundle args = new Bundle();
+            args.putBoolean("isNewUser", isNewUser);
+            args.putString("username", username);
+            args.putString("uid", uid);
+            newFragment.setArguments(args);
+            newFragment.show(getActivity().getSupportFragmentManager(), "create_username_dialog");
+        } else {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
     }
 }

@@ -48,10 +48,13 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
         username = args.getString("username", "");
 
         int layout;
+        int positiveTextId;
         if (isNewUser) {
             layout = R.layout.dialog_create_username;
+            positiveTextId = R.string.create_username;
         } else {
             layout = R.layout.dialog_change_username;
+            positiveTextId = R.string.change_username;
         }
 
         View view = inflater.inflate(layout, null);
@@ -62,7 +65,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
         builder.setView(view)
                 // Set positive button behvaiour later so we can prevent dialog being dismissed
                 // when change username button pressed
-                .setPositiveButton(R.string.change_username, null)
+                .setPositiveButton(positiveTextId, null)
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         // Do nothing
@@ -85,7 +88,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                                 errorText.setVisibility(View.GONE);
                                 errorText.setText(R.string.username_same);
                                 errorText.setVisibility(View.VISIBLE);
-                            } else if (!desiredUsername.equals("")) {
+                            } else {
                                 // Make it so button can't be clicked again until operation completes
                                 positiveBtn.setEnabled(false);
                                 errorText.setVisibility(View.GONE);
@@ -134,6 +137,10 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
             @Override
             public void onSuccess(Void aVoid) {
                 System.out.println("SUCCEEDED IN CHANGING USERNAME");
+                SharedPreferences settings = ((MainActivity) getActivity()).settings;
+                SharedPreferences.Editor editor = settings.edit();
+                editor.putString("username", desiredUsername);
+                editor.apply();
                 dialog.dismiss();
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
@@ -147,10 +154,6 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                         Toast.makeText(getActivity(), text, Toast.LENGTH_LONG).show();
                     }
                 });
-                SharedPreferences settings = ((MainActivity) getActivity()).settings;
-                SharedPreferences.Editor editor = settings.edit();
-                editor.putString("username", username);
-                editor.apply();
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
