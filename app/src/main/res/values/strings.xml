@@ -18,6 +18,12 @@
     <string name="exchange_crypto_title">Exchange Gold with Bank</string>
     <string name="remaining_gold_to_trade">Remaining crypto bank will accept today:\n25.0</string>
     <string name="exhange_rate_text">Exchange rate:\n0.0</string>
+    <string name="create_username">Create a username</string>
+    <string name="new_user_username">New users must create a username in order to gift coins.</string>
+    <string name="new_username">New username…</string>
+    <string name="username_in_use">That username is already in use, please try another.</string>
+    <string name="username_same">The new username is the same as your old one, if you\'d like to change it please enter a new one.</string>
+    <string name="change_username">Change username</string>
     <string-array name="crypto_array">
         <item>PENY</item>
         <item>DOLR</item>

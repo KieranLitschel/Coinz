@@ -401,10 +401,12 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 if (task.isSuccessful()) {
                     DocumentSnapshot document = task.getResult();
                     if (document.exists()) {
+                        String username = document.getString("username");
                         String mapJSONString = document.getString("map");
                         String lastDownloadedDate = document.getString("lastDownloadDate");
                         double coinsRemainingToday = document.getDouble("coinsRemainingToday");
                         SharedPreferences.Editor editor = settings.edit();
+                        editor.putString("username", username);
                         editor.putString("map", mapJSONString);
                         editor.putString("lastDownloadDate", lastDownloadedDate);
                         editor.putString("coinsRemainingToday", Double.toString(coinsRemainingToday));

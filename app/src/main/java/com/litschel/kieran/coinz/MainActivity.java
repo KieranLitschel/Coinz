@@ -213,6 +213,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
             if (resultCode == RESULT_OK) {
                 // Successfully signed in
+                // When only using one sign in method (in this case email), the uid for each user is unique
+                // so we can use this to uniquely identify them in the database
                 uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
                 SharedPreferences.Editor editor = settings.edit();
                 editor.putString("uid", uid);
@@ -257,12 +259,13 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
     private void setFirstTimeUser() {
         Map<String, Object> user_defaults = new HashMap<>();
+        user_defaults.put("username", "");
         for (String currency : currencies) {
             user_defaults.put(currency, 0.0);
         }
+        user_defaults.put("coinsRemainingToday", 0.0);
         user_defaults.put("map", "");
         user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
-        user_defaults.put("coinsRemainingToday", 0.0);
 
         db.collection("users").document(uid)
                 .set(user_defaults)

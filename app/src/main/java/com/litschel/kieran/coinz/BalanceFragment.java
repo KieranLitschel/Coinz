@@ -14,6 +14,10 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONException;
@@ -26,6 +30,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     private Context activity;
     private FirebaseFirestore db;
     private SharedPreferences settings;
+    private String uid;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
     private final String[] cryptoCurrencies = new String[]{"PENY", "DOLR", "SHIL", "QUID"};
     private HashMap<String, TextView> currencyTexts;
@@ -42,6 +47,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         activity = context;
         db = ((MainActivity) Objects.requireNonNull(getActivity())).db;
         settings = ((MainActivity) getActivity()).settings;
+        uid = ((MainActivity) getActivity()).uid;
     }
 
     @Nullable
@@ -82,7 +88,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
 
         setupValues();
 
-        FloatingActionButton exchangeCryptoFAB = (FloatingActionButton) view.findViewById(R.id.exchangeCryptoBtn);
+        FloatingActionButton exchangeCryptoFAB = view.findViewById(R.id.exchangeCryptoBtn);
         exchangeCryptoFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -103,6 +109,28 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                     }
                 } else {
                     Toast.makeText(activity, "Exchanging coins is unavailable as today's exchange rates have not been downloaded", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        FloatingActionButton giftCryptoFAB = view.findViewById(R.id.giftCryptoBtn);
+        giftCryptoFAB.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View view) {
+                if (((MainActivity) getActivity()).isNetworkAvailable()) {
+                    String username = settings.getString("username", "");
+                    if (username.equals("")) {
+                        DialogFragment newFragment = new ChangeUsernameDialogFragment();
+                        Bundle args = new Bundle();
+                        args.putBoolean("isNewUser", true);
+                        args.putString("username", username);
+                        args.putString("uid", uid);
+                        newFragment.setArguments(args);
+                        newFragment.show(getActivity().getSupportFragmentManager(), "create_username_dialog");
+                    }
+                } else {
+                    Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show();
                 }
             }
         });
