@@ -409,12 +409,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (coinsUpdateExecutor.isShutdown()) {
             coinsUpdateExecutor = Executors.newFixedThreadPool(1);
         }
-        if (waitingToListenForGifts) {
-            setUpListenerForGifts();
-        } else {
-            // On first time start up user id is none, in which case we wait for them to sign in
-            setUpListenerForGifts();
-        }
+        setUpListenerForGifts();
     }
 
     @Override
@@ -447,8 +442,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private void showGifts() {
 
         final DocumentReference usernamesDocRef = db.collection("users").document("usernames");
-        // Disable logout button while running in order to avoid crash caused by logging out
-        navigationView.getMenu().findItem(R.id.nav_logout).setEnabled(false);
         usernamesDocRef
                 .get()
                 .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
@@ -572,7 +565,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
                 settingUpUserGiftListener = false;
             } else {
-                navigationView.getMenu().findItem(R.id.nav_logout).setEnabled(true);
                 settingUpUserGiftListener = false;
                 waitingToListenForGifts = true;
             }
