@@ -109,6 +109,11 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                         giftAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
                         giftAmount = currencyVals.get(selectedCurrency);
                     }
+                    // This ensures players can't steal coins from others if there balance becomes negative somehow
+                    if (giftAmount < 0) {
+                        giftAmountEditText.setText("");
+                        giftAmount = 0;
+                    }
                 }
             }
 
@@ -128,7 +133,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         builder.setView(view)
                 // Set no listener for positive button as we will write on click action seperately
                 // so we can control the dialog being dismissed
-                .setPositiveButton(R.string.accept_trade, null)
+                .setPositiveButton(R.string.send_gift, null)
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                     }
@@ -153,7 +158,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                     public void onClick(View view) {
                         System.out.println("CHANGE USERNAME BUTTON CLICKED");
                         String recipent = recipientEditText.getText().toString();
-                        if (!recipent.equals("")) {
+                        if (!recipent.equals("") && giftAmount > 0) {
                             positiveBtn.setEnabled(false);
                             errorText.setVisibility(View.GONE);
                             findRecipientByUid(recipent, selectedCurrency, giftAmount);
@@ -179,46 +184,64 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                             positiveBtn.setEnabled(true);
                         } else {
                             DocumentSnapshot snapshot = task.getResult().getDocuments().get(0);
-                            String recipientUid = snapshot.getString("uid");
-                            sendGiftToRecipient(recipientUid, selectedCurrency, giftAmount);
+                            String recipientUid = snapshot.getId();
+                            sendGiftToRecipient(recipientUid, recipent, selectedCurrency, giftAmount);
                         }
                     }
                 });
     }
 
-    private void sendGiftToRecipient(String recipientUid, String selectedCurrency, double giftAmount) {
+    private void sendGiftToRecipient(String recipientUid, String recipient, String selectedCurrency, double giftAmount) {
         final DocumentReference senderRef = db.collection("users").document(uid);
         final DocumentReference recipientRef = db.collection("users").document(recipientUid);
+        final DocumentReference recipientGiftRef = db.collection("users_gifts").document(recipientUid);
         final DocumentReference giftRef = db.collection("gifts").document();
         db.runTransaction(new Transaction.Function<Void>() {
             @Nullable
             @Override
             public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                DocumentSnapshot senderSnapshot = transaction.get(senderRef);
-                DocumentSnapshot recipientSnapshot = transaction.get(recipientRef);
+                DocumentSnapshot recipientGiftSnapshot = transaction.get(recipientGiftRef);
 
-                transaction.update(senderRef, selectedCurrency, senderSnapshot.getDouble(selectedCurrency) - giftAmount);
+                // If someone has sent themself a gift we don't need to update the balances. We allow
+                // people to send themselves gifts as it allows testing the gift listener using espresso tests
+                if (!recipientUid.equals(uid)){
+                    DocumentSnapshot recipientSnapshot = transaction.get(recipientRef);
+                    DocumentSnapshot senderSnapshot = transaction.get(senderRef);
+                    transaction.update(senderRef, selectedCurrency, senderSnapshot.getDouble(selectedCurrency) - giftAmount);
+                    transaction.update(recipientRef, selectedCurrency, recipientSnapshot.getDouble(selectedCurrency) + giftAmount);
+                }
 
                 Map<String, Object> giftInfo = new HashMap<>();
+                // We store the UID rather than the username in case the sender changes their username
+                // before the recipient is notified of the gift
                 giftInfo.put("senderUid", uid);
-                giftInfo.put("recipientUid", recipientUid);
                 giftInfo.put("currency", selectedCurrency);
                 giftInfo.put("amount", giftAmount);
 
                 transaction.set(giftRef, giftInfo);
 
-                Map<String, Object> recipientInfo = new HashMap<>();
-                recipientInfo.put("gifts", ((List<String>) recipientSnapshot.get("gifts")).add(giftRef.getId()));
-                recipientInfo.put(selectedCurrency, recipientSnapshot.getDouble(selectedCurrency) + giftAmount);
+                List<String> gifts = (List<String>) recipientGiftSnapshot.get("gifts");
+                gifts.add(giftRef.getId());
+                transaction.update(recipientGiftRef, "gifts", gifts);
 
-                transaction.update(recipientRef, recipientInfo);
 
                 return null;
             }
         }).addOnSuccessListener(new OnSuccessListener<Void>() {
             @Override
             public void onSuccess(Void aVoid) {
-
+                System.out.println("UPDATED COINS IN DATABASE");
+                dialog.dismiss();
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getActivity(), String.format("Gifted %s %s to %s", giftAmount, selectedCurrency, recipient), Toast.LENGTH_LONG).show();
+                    }
+                });
+                MainActivity mainActivity = ((MainActivity) getActivity());
+                HashMap<String, Double> currencyChanges = new HashMap<>();
+                currencyChanges.put(selectedCurrency, -giftAmount);
+                mainActivity.coinsUpdateExecutor.submit(new CoinsUpdateTask(mainActivity, mainActivity.mapUpdateLock, mainActivity.settings, currencyChanges));
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override

@@ -30,6 +30,7 @@
     <string name="recipients_username">Recipients username…</string>
     <string name="amount_to_gift">Amount to gift…</string>
     <string name="recipent_not_found">Recipients username not found in database</string>
+    <string name="send_gift">Send gift</string>
     <string-array name="crypto_array">
         <item>PENY</item>
         <item>DOLR</item>

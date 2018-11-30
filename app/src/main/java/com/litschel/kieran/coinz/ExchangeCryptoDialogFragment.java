@@ -97,6 +97,11 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
                         tradeAmountEditText.setText(Double.toString(coinsRemainingToday));
                         tradeAmount = coinsRemainingToday;
                     }
+                    // This ensures they can't take crypto from the bank in exchange for gold if their crypto balance becomes negative somehow
+                    if (tradeAmount < 0){
+                        tradeAmountEditText.setText("");
+                        tradeAmount = 0;
+                    }
                 }
                 coinsRemainingTodayText.setText(String.format("Remaining crypto bank will accept today:\n%s",
                         coinsRemainingToday - tradeAmount));
@@ -123,8 +128,11 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
                 .setPositiveButton(R.string.accept_trade, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int id) {
-                        ((BalanceFragment) getTargetFragment()).executeTrade(selectedCurrency, tradeAmount,
-                                exchangeRates.get(selectedCurrency));
+                        // This ensures if the player tries to trade 0 crypto with the bank we don't waste resources updating values
+                        if (tradeAmount>0){
+                            ((BalanceFragment) getTargetFragment()).executeTrade(selectedCurrency, tradeAmount,
+                                    exchangeRates.get(selectedCurrency));
+                        }
                     }
                 })
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {

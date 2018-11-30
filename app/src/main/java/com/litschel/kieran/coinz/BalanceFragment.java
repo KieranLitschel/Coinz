@@ -134,7 +134,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         });
     }
 
-    private void updateCurrencyValues(){
+    private void updateCurrencyValues() {
         for (String currency : currencies) {
             currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0"))
                     + Double.parseDouble(settings.getString(currency + "Delta", "0")));

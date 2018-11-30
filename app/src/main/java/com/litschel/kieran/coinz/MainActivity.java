@@ -10,6 +10,7 @@ import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
@@ -33,19 +34,27 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Transaction;
+import com.google.firebase.firestore.WriteBatch;
 import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.StampedLock;
 
-public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback, CoinsUpdateWithDeltaCallback {
+public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback, CoinsUpdateWithDeltaCallback, CoinsUpdateTaskCallback {
 
     private MainActivity activity = this;
     public SharedPreferences settings;
@@ -61,6 +70,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private Handler myTimerTaskHandler;
     public StampedLock mapUpdateLock = new StampedLock();
     public Boolean waitingToUpdateCoins = false;
+    public ExecutorService coinsUpdateExecutor;
+    private ListenerRegistration userGiftListener;
+    private boolean settingUpUserGiftListener = false;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
 
     @Override
@@ -81,6 +93,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         }
 
         setContentView(R.layout.activity_main);
+
+        coinsUpdateExecutor = Executors.newFixedThreadPool(1);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -249,6 +263,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     } else {
                         System.out.println("USER EXISTS IN DATABASE");
                         setDefaultFragment();
+                        setUpListeningForGifts();
                     }
                 } else {
                     System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
@@ -258,6 +273,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     }
 
     private void setFirstTimeUser() {
+        WriteBatch batch = db.batch();
+
+        DocumentReference userDocRef = db.collection("users").document(uid);
         Map<String, Object> user_defaults = new HashMap<>();
         user_defaults.put("username", "");
         for (String currency : currencies) {
@@ -266,14 +284,21 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         user_defaults.put("coinsRemainingToday", 0.0);
         user_defaults.put("map", "");
         user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
+        batch.set(userDocRef, user_defaults);
 
-        db.collection("users").document(uid)
-                .set(user_defaults)
+        // We store gifts in a separate document to make listening for changes simpler
+        DocumentReference userGiftDocRef = db.collection("users_gifts").document(uid);
+        Map<String, Object> user_gift_defaults = new HashMap<>();
+        user_gift_defaults.put("gifts", new ArrayList<String>());
+        batch.set(userGiftDocRef, user_gift_defaults);
+
+        batch.commit()
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(Void aVoid) {
                         System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
                         setDefaultFragment();
+                        setUpListeningForGifts();
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
@@ -311,7 +336,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     System.out.println("UPDATE COINS TIMER TASK TRIGGERED");
                     if (isNetworkAvailable()) {
                         System.out.println("UPDATE COINS TIMER TASK FOUND INTERNET");
-                        new Thread(new CoinsUpdateWithDeltaTask(activity, db, settings, mapUpdateLock, uid)).start();
+                        coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(activity, db, settings, mapUpdateLock, uid));
                     } else {
                         System.out.println("UPDATE COINS TIMER TASK FOUND NO INTERNET");
                         updateCoinsOnInternet();
@@ -360,13 +385,26 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (waitingToUpdateCoins) {
             setToUpdateCoinsOnInternet();
         }
+        if (coinsUpdateExecutor.isShutdown()) {
+            coinsUpdateExecutor = Executors.newFixedThreadPool(1);
+        }
+        // On first time start up user id is none, in which case we wait for them to sign in
+        setUpListeningForGifts();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        if (userGiftListener != null) {
+            userGiftListener.remove();
+        }
         myTimer.cancel();
         myTimer.purge();
+        coinsUpdateExecutor.shutdown();
+        if (userGiftListener != null){
+            userGiftListener.remove();
+            userGiftListener = null;
+        }
     }
 
     @Override
@@ -379,5 +417,138 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             }
         });
         mapUpdateLock.unlockWrite(lockStamp);
+    }
+
+    private void setUpListeningForGifts() {
+        if (!uid.equals("") && !settingUpUserGiftListener && userGiftListener == null) {
+
+            settingUpUserGiftListener = true;
+
+            final DocumentReference usernamesDocRef = db.collection("users").document("usernames");
+
+            usernamesDocRef
+                    .get()
+                    .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                        @Override
+                        public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                            if (task.isSuccessful()) {
+                                // First we get the list of usernames
+                                DocumentSnapshot usernames = task.getResult();
+                                if (usernames.exists()) {
+                                    System.out.println("GOT USERNAMES DOC");
+                                    final DocumentReference userGiftsDocRef = db.collection("users_gifts").document(uid);
+                                    // We show all the gifts already stored
+                                    System.out.println("GETTING NEW GIFTS");
+                                    db.runTransaction(new Transaction.Function<ArrayList<String[]>>() {
+                                        @Override
+                                        public ArrayList<String[]> apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
+                                            // The first step to showing them is to get them from the database
+                                            DocumentSnapshot userGiftsSnapshot = transaction.get(userGiftsDocRef);
+                                            // As we have a username document we use this to get usernames rather than from each
+                                            // users document, this is because the username document is less likely to be updated
+                                            // mid-transaction
+
+                                            ArrayList<String> giftIDs = (ArrayList<String>) userGiftsSnapshot.get("gifts");
+
+                                            ArrayList<String[]> giftDetails = new ArrayList<>();
+
+                                            ArrayList<DocumentReference> giftDocRefs = new ArrayList<>();
+
+                                            for (String giftID : giftIDs) {
+                                                DocumentReference giftDocRef = db.collection("gifts").document(giftID);
+                                                giftDocRefs.add(giftDocRef);
+                                                DocumentSnapshot giftSnapshot = transaction.get(giftDocRef);
+                                                String senderName = usernames.getString(giftSnapshot.getString("senderUid"));
+                                                String currency = giftSnapshot.getString("currency");
+                                                String amount = Double.toString(giftSnapshot.getDouble("amount"));
+                                                giftDetails.add(new String[]{senderName, currency, amount});
+                                            }
+
+                                            for (DocumentReference giftDocRef : giftDocRefs) {
+                                                transaction.delete(giftDocRef);
+                                            }
+
+                                            Map<String, Object> usersGiftsDetails = new HashMap<>();
+                                            usersGiftsDetails.put("gifts", new ArrayList<String>());
+                                            transaction.set(userGiftsDocRef, usersGiftsDetails);
+                                            return giftDetails;
+                                        }
+                                    }).addOnSuccessListener(new OnSuccessListener<ArrayList<String[]>>() {
+                                        @Override
+                                        public void onSuccess(ArrayList<String[]> giftDetails) {
+                                            // Once we've gotten the current batch of gifts we set up a listener to listen for new gifts
+                                            listenForGifts();
+                                            // After that we show the gifts we have just fetched
+                                            if (giftDetails.size()>0){
+                                                HashMap<String, Double> currencyChanges = new HashMap<>();
+                                                for (String[] giftDetail : giftDetails) {
+                                                    String senderName = giftDetail[0];
+                                                    String currency = giftDetail[1];
+                                                    double amount = Double.parseDouble(giftDetail[2]);
+                                                    runOnUiThread(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            Toast.makeText(activity, String.format("Recieved %s %s from %s", amount, currency, senderName), Toast.LENGTH_LONG).show();
+                                                        }
+                                                    });
+                                                    currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
+                                                }
+                                                coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, mapUpdateLock, settings, currencyChanges));
+                                            }
+                                        }
+                                    }).addOnFailureListener(new OnFailureListener() {
+                                        @Override
+                                        public void onFailure(@NonNull Exception e) {
+                                            System.out.printf("TRANSACTION FOR RECEIVING GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
+                                            settingUpUserGiftListener = false;
+                                        }
+                                    });
+                                } else {
+                                    System.out.println("COULD NOT FIND USERNAMES DOC");
+                                    settingUpUserGiftListener = false;
+                                }
+                            } else {
+                                System.out.printf("GETTING USERNAMES DOC FOR SHOWING GIFTS FAILED WITH EXCEPTION:\n%s\n", task.getException().getMessage());
+                                settingUpUserGiftListener = false;
+                            }
+                        }
+                    });
+        }
+    }
+
+    private void listenForGifts() {
+        final DocumentReference userGiftsDocRef = db.collection("users_gifts").document(uid);
+
+        userGiftListener = userGiftsDocRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
+            @Override
+            public void onEvent(@Nullable DocumentSnapshot snapshot,
+                                @Nullable FirebaseFirestoreException e) {
+                if (e != null) {
+                    System.out.printf("LISTENING FOR GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
+                    userGiftListener = null;
+                    return;
+                }
+
+                if (snapshot != null && snapshot.exists()) {
+                    System.out.println("FOUND NEW GIFTS");
+                    ArrayList<String> gifts = (ArrayList<String>) snapshot.get("gifts");
+                    if (gifts.size()>0){
+                        userGiftListener.remove();
+                        userGiftListener = null;
+                        setUpListeningForGifts();
+                    }
+                } else {
+                    System.out.println("USERS GIFT DOCUMENT IS NULL");
+                }
+            }
+        });
+        settingUpUserGiftListener = false;
+    }
+
+    @Override
+    public void coinsUpdateTaskComplete() {
+        if (navigationView.getMenu().findItem(R.id.nav_balance).isChecked()) {
+            ((BalanceFragment) currentFragment).coinsUpdateTaskComplete();
+        }
     }
 }
