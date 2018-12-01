@@ -21,6 +21,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Transaction;
 
+// This dialog is used to allow the user to change their username or create a new one
 public class ChangeUsernameDialogFragment extends DialogFragment {
     private FirebaseFirestore db;
     private boolean isNewUser;
@@ -35,14 +36,12 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         db = FirebaseFirestore.getInstance();
 
-        // Get the layout inflater
         LayoutInflater inflater = getActivity().getLayoutInflater();
-
-        // Inflate and set the layout for the dialog
-        // Pass null as the parent view because its going in the dialog layout
 
         Bundle args = getArguments();
 
+        // We use isNewUser to differentiate between whether the user is creating a new username or
+        // if they are updating an old one, as we display different things in each case
         isNewUser = args.getBoolean("isNewUser", true);
         uid = args.getString("uid", "");
         username = args.getString("username", "");
@@ -59,6 +58,9 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
 
         View view = inflater.inflate(layout, null);
 
+        // In addition to requiring a user to have a username to gift coins, we also require them to
+        // have one when displaying the leaderboard, and this handles showing a slightly different
+        // message in each of teh cases
         if (args.getBoolean("isLeaderboard",false)){
             ((TextView) view.findViewById(R.id.infoText)).setText(R.string.new_user_username_leaderboard);
         }
@@ -87,13 +89,17 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                     public void onClick(View view) {
                         System.out.println("CHANGE USERNAME BUTTON CLICKED");
                         String desiredUsername = usernameEditText.getText().toString();
+                        // If the desired new username is empty we don't react to the button press
                         if (!desiredUsername.equals("")) {
+                            // If their new username is the same as their old one we tell them that
+                            // their new username must be different
                             if (desiredUsername.equals(username)) {
                                 errorText.setVisibility(View.GONE);
                                 errorText.setText(R.string.username_same);
                                 errorText.setVisibility(View.VISIBLE);
                             } else {
-                                // Make it so button can't be clicked again until operation completes
+                                // Make it so button can't be clicked again until operation completes,
+                                // as we have to query the database which can take a while
                                 positiveBtn.setEnabled(false);
                                 errorText.setVisibility(View.GONE);
                                 trySetUsername(desiredUsername);
@@ -108,6 +114,8 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
     }
 
     private void trySetUsername(String desiredUsername) {
+        // We use a transaction here in case two different users try to set their username to the same
+        // one at the same time
         db.runTransaction(new Transaction.Function<Void>() {
             @Override
             public Void apply(Transaction transaction) throws FirebaseFirestoreException {
@@ -123,12 +131,14 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
 
                 DocumentSnapshot usernamesRecord = transaction.get(db.collection("users").document("usernames"));
 
+                // We check the username is not already in use, in which case we throw an exception so we can inform the user
                 for (String otherUid : usernamesRecord.getData().keySet()) {
                     if (usernamesRecord.getString(otherUid).equals(desiredUsername)) {
                         throw new FirebaseFirestoreException("USERNAME ALREADY EXISTS IN DB", FirebaseFirestoreException.Code.ABORTED);
                     }
                 }
 
+                // We update the users document and the username document with the new username
                 transaction.update(db.collection("users").document("usernames"),
                         uid, desiredUsername);
                 transaction.update(db.collection("users").document(uid),
@@ -141,10 +151,12 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
             @Override
             public void onSuccess(Void aVoid) {
                 System.out.println("SUCCEEDED IN CHANGING USERNAME");
+                // We store the new username locally for other fragments to use
                 SharedPreferences settings = ((MainActivity) getActivity()).settings;
                 SharedPreferences.Editor editor = settings.edit();
                 editor.putString("username", desiredUsername);
                 editor.apply();
+                // We get rid of the dialog and inform them of the success
                 dialog.dismiss();
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
@@ -163,11 +175,15 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
             @Override
             public void onFailure(@NonNull Exception e) {
                 if (e.getMessage().equals("USERNAME ALREADY EXISTS IN DB")) {
+                    // If the exception had the message stated above, we found another user with the
+                    // desired username, so we inform the user the username is already taken
                     System.out.println("FOUND USERNAME IN USE");
                     errorText.setText(R.string.username_in_use);
                     errorText.setVisibility(View.VISIBLE);
                     positiveBtn.setEnabled(true);
                 } else {
+                    // If there was another exception something else went wrong, so we inform the user
+                    // the change was not sucessful and ask them to try again
                     System.out.printf("FAILED IN CHECKING USERNAME USERNAME VALID WITH EXCEPTION:\n%s\n", e);
                     dialog.dismiss();
                     getActivity().runOnUiThread(new Runnable() {

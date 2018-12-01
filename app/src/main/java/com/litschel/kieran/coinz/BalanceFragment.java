@@ -22,6 +22,8 @@ import org.json.JSONObject;
 import java.util.HashMap;
 import java.util.Objects;
 
+// This fragment handles showing the user the balances and provides FABs to send gifts and exchange
+// coins with the bank
 public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallback, CoinsUpdateTaskCallback {
     private Context activity;
     private FirebaseFirestore db;
@@ -54,6 +56,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        // We keep a record of the GUI elements so that we can change them easier later
         currencyTexts = new HashMap<String, TextView>() {{
             put("GOLD", (view.findViewById(R.id.GOLDText)));
             put("PENY", (view.findViewById(R.id.PENYText)));
@@ -64,6 +67,8 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         currencyValues = new HashMap<>();
         updateCurrencyValues();
 
+        // If the map is stored locally, we extract the currency rates to provide to the fragment
+        // that handles exchanging coins with the bank
         String mapJSONString = settings.getString("map", "");
         if (!mapJSONString.equals("")) {
             try {
@@ -81,12 +86,17 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
 
         setupValues();
 
+        // When this button is pressed it will bring up a dialog for the user to exchange crypto
+        // with the bank
         FloatingActionButton exchangeCryptoFAB = view.findViewById(R.id.exchangeCryptoBtn);
         exchangeCryptoFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                // If the map is empty then we don't have exchange rates for today
                 if (!mapJSONString.equals("")) {
+                    // We don't want to create a new trade while another is running, as this could allow the user to exchange coins they don't have
                     if (!tradeExecuting) {
+                        // We setup and display the dialog for exchanging currency with the bank
                         DialogFragment newFragment = new ExchangeCryptoDialogFragment();
                         Bundle args = new Bundle();
                         for (String currency : cryptoCurrencies) {
@@ -106,16 +116,22 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
             }
         });
 
+        // When this button is pressed it'll bring up a dialog for the user to send crypto to other
+        // players
         FloatingActionButton giftCryptoFAB = view.findViewById(R.id.giftCryptoBtn);
         giftCryptoFAB.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View view) {
+                // Can only send gifts if there is a network connection, so first we check that
                 if (((MainActivity) getActivity()).isNetworkAvailable()) {
                     String username = settings.getString("username", "");
+                    // Next we check if the user has set their username, as this is displayed on
+                    // the gift dialog, if they haven't we ask them too create one
                     if (username.equals("")) {
                         updateUsernameFragment(username, true);
                     } else {
+                        // We setup and display the gift dialog
                         DialogFragment newFragment = new GiftCryptoDialogFragment();
                         Bundle args = new Bundle();
                         args.putString("uid", uid);
@@ -134,6 +150,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         });
     }
 
+    // This reads the currency values from settings and updates the local hashmap
     private void updateCurrencyValues() {
         for (String currency : currencies) {
             currencyValues.put(currency, Double.parseDouble(settings.getString(currency, "0"))
@@ -141,6 +158,9 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         }
     }
 
+    // This updates the values currency values on the UI with the ones stored in the hashmap, we run it on the UI
+    // thread as it can be called be threads other than the UI one, and whenever we are modifying the
+    // UI we must call these methods on the UI thread
     private void setupValues() {
         getActivity().runOnUiThread(new Runnable() {
             @Override
@@ -153,11 +173,15 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         });
     }
 
+    // This is called when a trade is submitted through the trade dialog, and it safely updates the
+    // values in the database and settings to execute the trade
     public void executeTrade(String currency, double tradeAmount, double exchangeRate) {
         tradeExecuting = true;
         new Thread(new ExecuteTradeTask(this, ((MainActivity) getActivity()), db, settings, currencyValues, coinsRemainingToday, currency, tradeAmount, exchangeRate)).start();
     }
 
+    // This is called once the trade has completed and updates all the values so those displayed
+    // to the user are up-to date
     @Override
     public void onTradeComplete(double coinsRemainingToday) {
         this.coinsRemainingToday = coinsRemainingToday;
@@ -172,6 +196,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         });
     }
 
+    // This creates the dialog for the user to create a new username or update their old one
     public void updateUsernameFragment(String username, boolean isNewUser) {
         // Recheck internet connection here even though checked in gift FAB as this can be called from
         // GiftCryptoDialogFragment too
@@ -193,6 +218,8 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         }
     }
 
+    // This is called whenever we complete a coins update task, to ensure the displayed values are
+    // up-to date
     @Override
     public void coinsUpdateTaskComplete() {
         updateCurrencyValues();
