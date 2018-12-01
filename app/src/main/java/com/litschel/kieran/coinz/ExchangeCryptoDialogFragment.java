@@ -65,6 +65,8 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
                 selectedCurrency = cryptoCurrencies[i];
                 exchangeRateText.setText(String.format("Exchange rate:\n%s",
                         exchangeRates.get(selectedCurrency)));
+                String strTradeAmount = tradeAmountEditText.getText().toString();
+                updateTradeAmount(strTradeAmount);
                 setvalueInGold();
             }
 
@@ -82,27 +84,7 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 String strTradeAmount = charSequence.toString();
-                if (strTradeAmount.equals("")) {
-                    tradeAmount = 0;
-                } else {
-                    tradeAmount = Double.parseDouble(strTradeAmount);
-                    // Make sure the user hasn't asked to trade more currency than they have
-                    if (currencyVals.get(selectedCurrency) - tradeAmount < 0) {
-                        // Reduce the amount in the input box and read as input to the maximum they can trade
-                        tradeAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
-                        tradeAmount = currencyVals.get(selectedCurrency);
-                    }
-                    // Make sure the user hasn't asked to trade more currency than the bank will accept
-                    if (coinsRemainingToday - tradeAmount < 0) {
-                        tradeAmountEditText.setText(Double.toString(coinsRemainingToday));
-                        tradeAmount = coinsRemainingToday;
-                    }
-                    // This ensures they can't take crypto from the bank in exchange for gold if their crypto balance becomes negative somehow
-                    if (tradeAmount < 0){
-                        tradeAmountEditText.setText("");
-                        tradeAmount = 0;
-                    }
-                }
+                updateTradeAmount(strTradeAmount);
                 coinsRemainingTodayText.setText(String.format("Remaining crypto bank will accept today:\n%s",
                         coinsRemainingToday - tradeAmount));
                 setvalueInGold();
@@ -141,6 +123,32 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
                 });
 
         return builder.create();
+    }
+
+    // Run this whenever we change selectedCurrency or tradeAmount in order to ensure the coins
+    // in the edit box are a legal value
+    private void updateTradeAmount(String strTradeAmount){
+        if (strTradeAmount.equals("")) {
+            tradeAmount = 0;
+        } else {
+            tradeAmount = Double.parseDouble(strTradeAmount);
+            // Make sure the user hasn't asked to trade more currency than they have
+            if (currencyVals.get(selectedCurrency) - tradeAmount < 0) {
+                // Reduce the amount in the input box and read as input to the maximum they can trade
+                tradeAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
+                tradeAmount = currencyVals.get(selectedCurrency);
+            }
+            // Make sure the user hasn't asked to trade more currency than the bank will accept
+            if (coinsRemainingToday - tradeAmount < 0) {
+                tradeAmountEditText.setText(Double.toString(coinsRemainingToday));
+                tradeAmount = coinsRemainingToday;
+            }
+            // This ensures they can't take crypto from the bank in exchange for gold if their crypto balance becomes negative somehow
+            if (tradeAmount < 0){
+                tradeAmountEditText.setText("");
+                tradeAmount = 0;
+            }
+        }
     }
 
     private void setvalueInGold() {

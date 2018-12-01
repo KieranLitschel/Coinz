@@ -83,6 +83,8 @@ public class GiftCryptoDialogFragment extends DialogFragment {
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                 selectedCurrency = cryptoCurrencies[i];
+                String strgiftAmount = giftAmountEditText.getText().toString();
+                updateGiftAmount(strgiftAmount);
             }
 
             @Override
@@ -99,22 +101,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 String strgiftAmount = charSequence.toString();
-                if (strgiftAmount.equals("")) {
-                    giftAmount = 0;
-                } else {
-                    giftAmount = Double.parseDouble(strgiftAmount);
-                    // Make sure the user hasn't asked to trade more currency than they have
-                    if (currencyVals.get(selectedCurrency) - giftAmount < 0) {
-                        // Reduce the amount in the input box and read as input to the maximum they can trade
-                        giftAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
-                        giftAmount = currencyVals.get(selectedCurrency);
-                    }
-                    // This ensures players can't steal coins from others if there balance becomes negative somehow
-                    if (giftAmount < 0) {
-                        giftAmountEditText.setText("");
-                        giftAmount = 0;
-                    }
-                }
+                updateGiftAmount(strgiftAmount);
             }
 
             @Override
@@ -169,6 +156,25 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         });
 
         return dialog;
+    }
+
+    private void updateGiftAmount(String strgiftAmount){
+        if (strgiftAmount.equals("")) {
+            giftAmount = 0;
+        } else {
+            giftAmount = Double.parseDouble(strgiftAmount);
+            // Make sure the user hasn't asked to trade more currency than they have
+            if (currencyVals.get(selectedCurrency) - giftAmount < 0) {
+                // Reduce the amount in the input box and read as input to the maximum they can trade
+                giftAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
+                giftAmount = currencyVals.get(selectedCurrency);
+            }
+            // This ensures players can't steal coins from others if there balance becomes negative somehow
+            if (giftAmount < 0) {
+                giftAmountEditText.setText("");
+                giftAmount = 0;
+            }
+        }
     }
 
     private void findRecipientByUid(String recipent, String selectedCurrency, double giftAmount) {
