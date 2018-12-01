@@ -68,6 +68,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private NavigationView navigationView;
     private FragmentManager fragmentManager;
     private Fragment currentFragment = null;
+    private Fragment prevFragment;
     private Timer myTimer;
     private Handler myTimerTaskHandler;
     public StampedLock mapUpdateLock = new StampedLock();
@@ -148,6 +149,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                     break;
                                 case R.id.nav_balance:
                                     fragmentClass = BalanceFragment.class;
+                                    break;
+                                case R.id.nav_leaderboard:
+                                    fragmentClass = LeaderboardFragment.class;
                                     break;
                                 case R.id.nav_logout:
                                     logout();

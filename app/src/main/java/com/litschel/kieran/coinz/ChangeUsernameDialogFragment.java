@@ -59,6 +59,10 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
 
         View view = inflater.inflate(layout, null);
 
+        if (args.getBoolean("isLeaderboard",false)){
+            ((TextView) view.findViewById(R.id.infoText)).setText(R.string.new_user_username_leaderboard);
+        }
+
         EditText usernameEditText = view.findViewById(R.id.usernameEditText);
         errorText = view.findViewById(R.id.usernameExistsText);
 
