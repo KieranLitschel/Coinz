@@ -173,7 +173,7 @@ public class LeaderboardFragment extends Fragment {
                                         rows[i + 5].setVisibility(View.VISIBLE);
                                     }
                                     if (currUserRank > 10) {
-                                        userRank.setText(currUserRank);
+                                        userRank.setText(Integer.toString(currUserRank));
                                         names[0].setText(currUser.getUsername());
                                         golds[0].setText(currUser.getGoldStr());
                                         for (int i = 0; i < 3; i++) {
