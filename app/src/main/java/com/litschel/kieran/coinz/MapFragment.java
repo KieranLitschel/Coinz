@@ -129,6 +129,23 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
             }
         });
+
+        FloatingActionButton collectCoinFAB = (FloatingActionButton) view.findViewById(R.id.collectCoinFAB);
+        if (users.equals("users-test")){
+            collectCoinFAB.setVisibility(View.VISIBLE);
+            collectCoinFAB.setEnabled(true);
+            collectCoinFAB.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    ArrayList<Marker> markersToRemove = new ArrayList<>();
+                    markersToRemove.add(markers.get(0));
+                    removeMarkers(markersToRemove);
+                }
+            });
+        } else {
+            collectCoinFAB.setVisibility(View.GONE);
+            collectCoinFAB.setEnabled(false);
+        }
     }
 
     private void initialSetup() {
