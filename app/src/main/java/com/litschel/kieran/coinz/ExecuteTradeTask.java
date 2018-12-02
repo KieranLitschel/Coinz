@@ -96,12 +96,12 @@ public class ExecuteTradeTask implements Runnable {
                     Double.toString(Double.parseDouble(settings.getString("GOLDDelta", "0")) + tradeAmount * exchangeRate));
             LocalDate lostConnectionDate = LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString()));
             // We check that the date hasn't changed since we started to count how many coins the user has exchanged today
-            if (lostConnectionDate.isEqual(LocalDate.now())) {
+            if (lostConnectionDate.isEqual(activity.localDateNow())) {
                 editor.putString("coinsRemainingTodayDelta",
                         Double.toString(Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0")) - tradeAmount));
             } else {
                 // If the date has changed we restart counting
-                editor.putString("lostConnectionDate", LocalDate.now().toString());
+                editor.putString("lostConnectionDate", activity.localDateNow().toString());
                 editor.putString("coinsRemainingTodayDelta",
                         Double.toString(tradeAmount));
             }

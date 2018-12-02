@@ -72,6 +72,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             "8SpoGV9JFlXKlIiuAXkQ22PB0MF3",
             "ROtiCeFTuIZ3xNOhEweThG3htXj1"
     };
+    public boolean tester;
     public String users;
     public String gifts;
     public String users_gifts;
@@ -162,10 +163,12 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             users = "users-test";
             gifts = "gifts-test";
             users_gifts = "users_gifts-test";
+            tester = true;
         } else {
             users = "users";
             gifts = "gifts";
             users_gifts = "users_gifts";
+            tester = false;
         }
 
         System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
@@ -300,10 +303,12 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     users = "users-test";
                     gifts = "gifts-test";
                     users_gifts = "users_gifts-test";
+                    tester = true;
                 } else {
                     users = "users";
                     gifts = "gifts";
                     users_gifts = "users_gifts";
+                    tester = false;
                 }
                 if (uid.equals("ROtiCeFTuIZ3xNOhEweThG3htXj1")) {
                     resetTestDB();
@@ -677,5 +682,15 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                         }
                     }
                 });
+    }
+
+    public LocalDate localDateNow(){
+        LocalDate now;
+        if (tester){
+            now = LocalDate.of(2018,12,1);
+        } else {
+            now = LocalDate.now();
+        }
+        return now;
     }
 }

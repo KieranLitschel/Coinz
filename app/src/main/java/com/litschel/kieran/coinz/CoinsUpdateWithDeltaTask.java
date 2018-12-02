@@ -18,12 +18,13 @@ import java.util.concurrent.locks.StampedLock;
 
 public class CoinsUpdateWithDeltaTask implements Runnable {
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
+    private String users;
+    private MainActivity activity;
     private CoinsUpdateWithDeltaCallback context;
     private FirebaseFirestore db;
     private SharedPreferences settings;
     private StampedLock mapUpdateLock;
     private String uid;
-    private String users;
 
     CoinsUpdateWithDeltaTask(String users, CoinsUpdateWithDeltaCallback context, FirebaseFirestore db, SharedPreferences settings, StampedLock mapUpdateLock, String uid) {
         this.context = context;
@@ -32,6 +33,7 @@ public class CoinsUpdateWithDeltaTask implements Runnable {
         this.mapUpdateLock = mapUpdateLock;
         this.uid = uid;
         this.users = users;
+        this.activity = ((MainActivity) context);
     }
 
     @Override
@@ -53,7 +55,7 @@ public class CoinsUpdateWithDeltaTask implements Runnable {
                     newValues.put(currency, snapshot.getDouble(currency) + Double.parseDouble(settings.getString(currency + "Delta", "0")));
                 }
 
-                if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(LocalDate.now())) {
+                if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())) {
                     newValues.put("coinsRemainingToday", snapshot.getDouble("coinsRemainingToday") + Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0")));
                     newValues.put("map", settings.getString("map", ""));
                 }
@@ -73,7 +75,7 @@ public class CoinsUpdateWithDeltaTask implements Runnable {
                                     + Double.parseDouble(settings.getString(currency + "Delta", "0"))));
                     editor.remove(currency + "Delta");
                 }
-                if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(LocalDate.now())) {
+                if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())) {
                     editor.putString("coinsRemainingToday", Double.toString(
                             Double.parseDouble(settings.getString("coinsRemainingToday", "0"))
                                     + Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0"))));

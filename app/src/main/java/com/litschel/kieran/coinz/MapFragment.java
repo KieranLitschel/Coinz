@@ -63,6 +63,7 @@ import java.util.concurrent.locks.StampedLock;
 public class MapFragment extends Fragment implements LocationEngineListener, PermissionsListener, MapUpdateCallback, MapDownloadedCallback, RemoveMarkersCallback {
 
     private Context activity;
+    private MainActivity mainActivity;
     private PermissionsManager permissionsManager;
     private LocationLayerPlugin locationPlugin;
     private LocationEngine locationEngine;
@@ -85,6 +86,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void onAttach(Context context) {
         super.onAttach(context);
         activity = context;
+        mainActivity = ((MainActivity) getActivity());
         settings = ((MainActivity) getActivity()).settings;
         db = ((MainActivity) getActivity()).db;
         mapUpdateLock = ((MainActivity) getActivity()).mapUpdateLock;
@@ -259,28 +261,30 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     private void setToUpdateAtMidnight() {
-        TimerTask mTt = new TimerTask() {
-            public void run() {
-                myTimerTaskHandler.post(new Runnable() {
-                    public void run() {
-                        checkForMapUpdate();
-                        setToUpdateAtMidnight();
-                    }
-                });
+        if (!((MainActivity) getActivity()).tester){
+            TimerTask mTt = new TimerTask() {
+                public void run() {
+                    myTimerTaskHandler.post(new Runnable() {
+                        public void run() {
+                            checkForMapUpdate();
+                            setToUpdateAtMidnight();
+                        }
+                    });
+                }
+            };
+            try {
+                myTimer.schedule(mTt, new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
+                        .parse(LocalDate.now().plusDays(1).toString() + " 00:00:00"));
+            } catch (ParseException e) {
+                e.printStackTrace();
             }
-        };
-        try {
-            myTimer.schedule(mTt, new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
-                    .parse(LocalDate.now().plusDays(1).toString() + " 00:00:00"));
-        } catch (ParseException e) {
-            e.printStackTrace();
         }
     }
 
     public void checkForMapUpdate() {
         if (settings != null) {
             System.out.println("CHECKING IF MAP UPDATE REQUIRED");
-            mapUpdateExecutor.submit(new MapUpdateTask(this, mapUpdateLock, settings));
+            mapUpdateExecutor.submit(new MapUpdateTask(((MainActivity) getActivity()),this, mapUpdateLock, settings));
         }
     }
 
@@ -299,7 +303,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             editor.putString("map", "");
             editor.apply();
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = mainActivity.localDateNow();
         String year = String.valueOf(today.getYear());
         String month = String.valueOf(today.getMonthValue());
         if (month.length() == 1) {
@@ -425,11 +429,11 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void onMapDownloaded(String mapJSONString, long lockStamp) {
         System.out.println("SUCCEEDED IN DOWNLOADING MAP");
         Map<String, Object> mapData = new HashMap<>();
-        mapData.put("lastDownloadDate", LocalDate.now().toString());
+        mapData.put("lastDownloadDate", mainActivity.localDateNow().toString());
         mapData.put("map", mapJSONString);
         LocalDate lostConnectionDate = LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString()));
         double coinsRemainingTodayDelta;
-        if (lostConnectionDate.isEqual(LocalDate.now())) {
+        if (lostConnectionDate.isEqual(mainActivity.localDateNow())) {
             coinsRemainingTodayDelta = Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0"));
         } else {
             coinsRemainingTodayDelta = 0;
@@ -442,7 +446,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                     public void onSuccess(Void aVoid) {
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString("map", mapJSONString);
-                        editor.putString("lastDownloadDate", LocalDate.now().toString());
+                        editor.putString("lastDownloadDate", mainActivity.localDateNow().toString());
                         editor.putString("coinsRemainingToday", Double.toString(25 - coinsRemainingTodayDelta));
                         editor.remove("lostConnectionDate");
                         editor.remove("coinsRemainingTodayDelta");

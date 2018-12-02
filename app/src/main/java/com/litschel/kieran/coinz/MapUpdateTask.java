@@ -8,11 +8,13 @@ import java.util.concurrent.locks.StampedLock;
 public class MapUpdateTask implements Runnable {
 
     private StampedLock mapUpdateLock;
+    private MainActivity activity;
     private MapUpdateCallback context;
     private SharedPreferences settings;
 
-    MapUpdateTask(MapUpdateCallback context, StampedLock mapUpdateLock, SharedPreferences settings) {
+    MapUpdateTask(MainActivity activity, MapUpdateCallback context, StampedLock mapUpdateLock, SharedPreferences settings) {
         super();
+        this.activity = activity;
         this.mapUpdateLock = mapUpdateLock;
         this.context = context;
         this.settings = settings;
@@ -26,7 +28,7 @@ public class MapUpdateTask implements Runnable {
 
         LocalDate lastDownloadDate = LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString()));
 
-        if (lastDownloadDate.isBefore(LocalDate.now())) {
+        if (lastDownloadDate.isBefore(activity.localDateNow())) {
             context.updateMap(lockStamp);
         } else {
             mapUpdateLock.unlockWrite(lockStamp);
