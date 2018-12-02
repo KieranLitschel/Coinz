@@ -53,7 +53,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.StampedLock;
@@ -61,17 +60,17 @@ import java.util.concurrent.locks.StampedLock;
 public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback, CoinsUpdateWithDeltaCallback, CoinsUpdateTaskCallback {
 
     private String[] testers = new String[]{
-            "BA9AZoUmESQVZVHNTW6NjlodXwh1",
-            "G7rnXhmxzthJM0my6jmK75Tj7uT2",
-            "RDu5z5yUI0YJdRY1RQoMSuzQepB2",
-            "Tt5gSJ6Pn5UTzi9hrOGXDlKxttR2",
-            "Y6485gGEphRbceltfHjCZ5vpgsq2",
-            "jUpczR30G5R2fvSL7fn4yWNOcbL2",
-            "lu5b4HKiTNNXVcUmR7PdigsfE9C2",
-            "lvAiptUeJyVSnQx0HZYZ7XBxpon2",
-            "tcHsedoaMhdCbzv3Lb8WRcIVEhG2",
-            "vhrUoewF1xVEG4v5ZYu0Fjqn0343",
-            "yGtqu91xqPTTEDRsYAkt0fWTko12"
+            "EdrUWa2aEjNP0PAnyzi34AZRKGG3",
+            "9dAfz9WWB2SWalZdcHmLhjrGdvT2",
+            "GwNuEg0pEUQvpuaBXiCU5uWip0G2",
+            "nXt3iQm2uOhpwtAPocgd2ii9imi2",
+            "d9X1huNfATNk0tsDM8T8AWLM4qb2",
+            "VLtSELSe31cLPvNsvF692VyO5Py1",
+            "7SaETL8QlXUQtgJMaJb9xO5JVAY2",
+            "ceFCMjlFOhXqrAHyuhKwEZGUUHn1",
+            "dUfwCZBX2EW1QIHwHkhNZoqOWf52",
+            "8SpoGV9JFlXKlIiuAXkQ22PB0MF3",
+            "ROtiCeFTuIZ3xNOhEweThG3htXj1"
     };
     public String users;
     public String gifts;
@@ -86,8 +85,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private NavigationView navigationView;
     private FragmentManager fragmentManager;
     private Fragment currentFragment = null;
-    private Timer myTimer;
-    private Handler myTimerTaskHandler;
     public StampedLock mapUpdateLock = new StampedLock();
     public Boolean waitingToUpdateCoins = false;
     public ExecutorService coinsUpdateExecutor;
@@ -308,7 +305,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     gifts = "gifts";
                     users_gifts = "users_gifts";
                 }
-                if (uid.equals("jUpczR30G5R2fvSL7fn4yWNOcbL2")) {
+                if (uid.equals("ROtiCeFTuIZ3xNOhEweThG3htXj1")) {
                     resetTestDB();
                 } else {
                     setupAfterUid();
@@ -446,8 +443,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         registerReceiver(networkChangeReciever, intentFilter);
-        myTimer = new Timer();
-        myTimerTaskHandler = new Handler();
         // If onStart called, then that means onStop was called prior to it, meaning the timer will
         // have been purged, meaning we need to restart the timer for looking for the internet, which
         // we do below
@@ -467,8 +462,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (userGiftListener != null) {
             userGiftListener.remove();
         }
-        myTimer.cancel();
-        myTimer.purge();
         coinsUpdateExecutor.shutdown();
         if (userGiftListener != null) {
             userGiftListener.remove();
