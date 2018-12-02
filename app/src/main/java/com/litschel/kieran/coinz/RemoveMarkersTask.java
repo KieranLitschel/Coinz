@@ -12,6 +12,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Transaction;
 import com.mapbox.mapboxsdk.annotations.Marker;
+import com.mapbox.mapboxsdk.annotations.MarkerOptions;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -27,13 +28,13 @@ public class RemoveMarkersTask implements Runnable {
     private StampedLock mapUpdateLock;
     private FirebaseFirestore db;
     private String uid;
-    private ArrayList<Marker> markersToRemove;
+    private ArrayList<MarkerOptions> markersToRemove;
     private SharedPreferences settings;
     private MainActivity activity;
     private String users;
-    private HashMap<Marker, String> markerIds;
+    private HashMap<MarkerOptions, String> markerIds;
 
-    RemoveMarkersTask(RemoveMarkersCallback context, HashMap<Marker, String> markerIds, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+    RemoveMarkersTask(RemoveMarkersCallback context, HashMap<MarkerOptions, String> markerIds, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<MarkerOptions> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
         this.mapUpdateLock = mapUpdateLock;
@@ -47,12 +48,12 @@ public class RemoveMarkersTask implements Runnable {
     }
 
     public void run() {
-        System.out.println("COINS UPDATE TASK WAITING FOR LOCK");
+        System.out.println("REMOVE MARKER TASK WAITING FOR LOCK");
         final long lockStamp = mapUpdateLock.writeLock();
-        System.out.println("COINS UPDATE TASK ACQUIRED LOCK");
+        System.out.println("REMOVE MARKER TASK ACQUIRED LOCK");
 
         String mapJSONString = settings.getString("map", "");
-        HashMap<Marker, String[]> markerDetails = new HashMap<>();
+        HashMap<MarkerOptions, String[]> markerDetails = new HashMap<>();
         ArrayList<String> currencies = new ArrayList<>();
         JSONObject mapJSON = new JSONObject();
 
@@ -63,12 +64,13 @@ public class RemoveMarkersTask implements Runnable {
             int i = 0;
             while (i < markersJSON.length() && removed < markersToRemove.size()) {
                 JSONObject markerJSON = markersJSON.getJSONObject(i);
-                for (Marker marker : markersToRemove) {
-                    String markerTitle = markerIds.getOrDefault(marker, "");
+                for (MarkerOptions markerOpt : markersToRemove) {
+                    String markerTitle = markerIds.getOrDefault(markerOpt, "");
+                    Marker marker = markerOpt.getMarker();
                     if (markerTitle.equals(markerJSON.getJSONObject("properties").getString("id"))) {
                         String currency = markerJSON.getJSONObject("properties").getString("currency");
                         String value = markerJSON.getJSONObject("properties").getString("value");
-                        markerDetails.put(marker, new String[]{
+                        markerDetails.put(markerOpt, new String[]{
                                 currency,
                                 value
                         });
@@ -103,7 +105,7 @@ public class RemoveMarkersTask implements Runnable {
                         for (String currency : currencies) {
                             newValues.put(currency, snapshot.getDouble(currency));
                         }
-                        for (Marker marker : markerDetails.keySet()) {
+                        for (MarkerOptions marker : markerDetails.keySet()) {
                             String currency = markerDetails.get(marker)[0];
                             Double value = Double.parseDouble(markerDetails.get(marker)[1]);
                             newValues.put(currency, (double) newValues.get(currency) + value);
@@ -134,7 +136,7 @@ public class RemoveMarkersTask implements Runnable {
                 for (String currency : currencies) {
                     newDeltas.put(currency, Double.parseDouble(settings.getString(currency + "Delta", "0")));
                 }
-                for (Marker marker : markerDetails.keySet()) {
+                for (MarkerOptions marker : markerDetails.keySet()) {
                     String currency = markerDetails.get(marker)[0];
                     Double value = Double.parseDouble(markerDetails.get(marker)[1]);
                     newDeltas.put(currency, newDeltas.get(currency) + value);
@@ -145,18 +147,17 @@ public class RemoveMarkersTask implements Runnable {
                 }
                 editor.apply();
                 if (!activity.waitingToUpdateCoins) {
-                    activity.waitingToUpdateCoins = true;
                     activity.setToUpdateCoinsOnInternet();
                 }
                 context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
             }
         } else {
             mapUpdateLock.unlockWrite(lockStamp);
-            System.out.println("COINS UPDATE TASK RELEASED LOCK");
+            System.out.println("REMOVE MARKER TASK RELEASED LOCK");
         }
     }
 }
 
 interface RemoveMarkersCallback {
-    void onCoinsUpdated(long lockStamp, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON);
+    void onCoinsUpdated(long lockStamp, HashMap<MarkerOptions, String[]> markerDetails, JSONObject mapJSON);
 }

@@ -73,13 +73,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private StampedLock mapUpdateLock;
     private SharedPreferences settings;
     private FirebaseFirestore db;
-    private ArrayList<Marker> markers;
+    private ArrayList<MarkerOptions> markerOpts;
     private Timer myTimer;
     private Handler myTimerTaskHandler;
     private boolean justCreated;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
     private String users;
-    private HashMap<Marker, String> markerIds;
+    private HashMap<MarkerOptions, String> markerIds;
 
     @Override
     public void onAttach(Context context) {
@@ -137,8 +137,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             collectCoinFAB.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    ArrayList<Marker> markersToRemove = new ArrayList<>();
-                    markersToRemove.add(markers.get(0));
+                    ArrayList<MarkerOptions> markersToRemove = new ArrayList<>();
+                    markersToRemove.add(markerOpts.get(0));
                     removeMarkers(markersToRemove);
                 }
             });
@@ -159,7 +159,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             } else {
                 Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                         .show();
-                setToInitialMapSetupOnInternet();
+                ((MainActivity) getActivity()).waitingToInitialMapSetup = true;
             }
         } else {
             System.out.println("ON START WAITING FOR LOCK");
@@ -216,13 +216,14 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         public void onLocationChanged(android.location.Location location) {
             double latitude = location.getLatitude();
             double longitude = location.getLongitude();
-            if (markers != null) {
-                ArrayList<Marker> markersToRemove = new ArrayList<>();
-                for (Marker marker : markers) {
+            if (markerOpts != null) {
+                ArrayList<MarkerOptions> markersToRemove = new ArrayList<>();
+                for (MarkerOptions markerOpt : markerOpts) {
+                    Marker marker = markerOpt.getMarker();
                     LatLng markerPos = marker.getPosition();
                     if (ThirdPartyMethods.distance(latitude, longitude,
                             markerPos.getLatitude(), markerPos.getLongitude(), "K") * 1000 <= 25) {
-                        markersToRemove.add(marker);
+                        markersToRemove.add(markerOpt);
                     }
                 }
                 if (markersToRemove.size() > 0) {
@@ -249,7 +250,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
 
     // I made this a seperate method to make testing easier
-    private void removeMarkers(ArrayList<Marker> markersToRemove) {
+    private void removeMarkers(ArrayList<MarkerOptions> markersToRemove) {
 
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
@@ -276,7 +277,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
     }
 
-    private void checkForMapUpdate() {
+    public void checkForMapUpdate() {
         if (settings != null) {
             System.out.println("CHECKING IF MAP UPDATE REQUIRED");
             mapUpdateExecutor.submit(new MapUpdateTask(this, mapUpdateLock, settings));
@@ -286,7 +287,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     @Override
     public void updateMap(long lockStamp) {
         if (!settings.getString("map", "").equals("")) {
-            markers = new ArrayList<>();
+            markerOpts = new ArrayList<>();
             // This will be called on a thread seperate to the main activity, so we must tell it to run on the UI thread
             getActivity().runOnUiThread(new Runnable() {
                 @Override
@@ -311,7 +312,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
         if (!((MainActivity) getActivity()).isNetworkAvailable()) {
-            setToUpdateMapOnInternet();
+            ((MainActivity) getActivity()).waitingToUpdateMap = true;
             mapUpdateLock.unlockWrite(lockStamp);
             // Similarly to for map.clear, as this changes a UI element we must call it on the UI thread
             getActivity().runOnUiThread(new Runnable() {
@@ -324,26 +325,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         } else {
             new DownloadMapTask(this, mapUpdateLock, lockStamp).execute(url);
         }
-    }
-
-    private void setToUpdateMapOnInternet() {
-        System.out.println("CREATED TIMER TASK");
-        TimerTask mTtInternet = new TimerTask() {
-            public void run() {
-                myTimerTaskHandler.post(() -> {
-                    System.out.println("TIMER TASK TRIGGERED");
-                    if (((MainActivity) getActivity()).isNetworkAvailable()) {
-                        System.out.println("TIMER TASK FOUND INTERNET");
-                        checkForMapUpdate();
-                    } else {
-                        System.out.println("TIMER TASK FOUND NO INTERNET");
-                        setToUpdateMapOnInternet();
-                    }
-                });
-            }
-        };
-        System.out.println("TIMER TASK SCHEDULED");
-        myTimer.schedule(mTtInternet, 5000);
     }
 
     @Override
@@ -401,7 +382,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
     }
 
-    private void initialMapSetup() {
+    public void initialMapSetup() {
         DocumentReference docRef = db.collection(users).document(((MainActivity) getActivity()).uid);
         docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
             @Override
@@ -437,26 +418,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 }
             }
         });
-    }
-
-    private void setToInitialMapSetupOnInternet() {
-        System.out.println("CREATED TIMER TASK");
-        TimerTask mTtInternet = new TimerTask() {
-            public void run() {
-                myTimerTaskHandler.post(() -> {
-                    System.out.println("TIMER TASK TRIGGERED");
-                    if (((MainActivity) getActivity()).isNetworkAvailable()) {
-                        System.out.println("TIMER TASK FOUND INTERNET");
-                        initialMapSetup();
-                    } else {
-                        System.out.println("TIMER TASK FOUND NO INTERNET");
-                        setToUpdateMapOnInternet();
-                    }
-                });
-            }
-        };
-        System.out.println("TIMER TASK SCHEDULED");
-        myTimer.schedule(mTtInternet, 5000);
     }
 
 
@@ -507,7 +468,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     public void updateMarkers(String mapJSONString, long lockStamp) {
-        markers = new ArrayList<>();
+        markerOpts = new ArrayList<>();
         markerIds = new HashMap<>();
         if (!mapJSONString.equals("")) {
             try {
@@ -525,9 +486,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                                     Double.parseDouble(pos.getString(0))))
                             .title(value+" "+currency)
                             .icon(icon);
-                    Marker newMarker = markerOption.getMarker();
-                    markerIds.put(newMarker, markerJSON.getJSONObject("properties").getString("id"));
-                    markers.add(newMarker);
+                    markerIds.put(markerOption, markerJSON.getJSONObject("properties").getString("id"));
+                    markerOpts.add(markerOption);
                     map.addMarker(markerOption);
                 }
                 System.out.println("ADDED NEW MARKERS TO MAP");
@@ -541,20 +501,21 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     @Override
-    public void onCoinsUpdated(long lockStamp, HashMap<Marker, String[]> markerDetails, JSONObject mapJSON) {
+    public void onCoinsUpdated(long lockStamp, HashMap<MarkerOptions, String[]> markerDetails, JSONObject mapJSON) {
         ArrayList<String[]> coinsCollected = new ArrayList<>();
-        for (Marker marker : markerDetails.keySet()) {
+        for (MarkerOptions markerOpt : markerDetails.keySet()) {
             // We use runOnUiThread here as this method is called from outside the UI thread
+            Marker marker = markerOpt.getMarker();
             getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     map.removeMarker(marker);
                 }
             });
-            markers.remove(marker);
-            coinsCollected.add(markerDetails.get(marker));
-            System.out.println("Removed marker " + markerIds.get(marker));
-            markerIds.remove(marker);
+            markerOpts.remove(markerOpt);
+            coinsCollected.add(markerDetails.get(markerOpt));
+            System.out.println("Removed marker " + markerIds.get(markerOpt));
+            markerIds.remove(markerOpt);
         }
         if (coinsCollected.size() == 1) {
             String currency = coinsCollected.get(0)[0];

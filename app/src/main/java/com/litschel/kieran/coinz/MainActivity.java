@@ -73,9 +73,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             "vhrUoewF1xVEG4v5ZYu0Fjqn0343",
             "yGtqu91xqPTTEDRsYAkt0fWTko12"
     };
-    public String users = "users";
-    public String gifts = "gifts";
-    public String users_gifts = "users_gifts";
+    public String users;
+    public String gifts;
+    public String users_gifts;
     private MainActivity activity = this;
     public SharedPreferences settings;
     private final String settingsFile = "SettingsFile";
@@ -86,7 +86,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private NavigationView navigationView;
     private FragmentManager fragmentManager;
     private Fragment currentFragment = null;
-    private Fragment prevFragment;
     private Timer myTimer;
     private Handler myTimerTaskHandler;
     public StampedLock mapUpdateLock = new StampedLock();
@@ -94,6 +93,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     public ExecutorService coinsUpdateExecutor;
     private ListenerRegistration userGiftListener;
     private boolean waitingToListenForGifts = false;
+    public boolean waitingToUpdateMap = false;
+    public boolean waitingToInitialMapSetup = false;
     private boolean settingUpUserGiftListener = false;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
     private BroadcastReceiver networkChangeReciever = new BroadcastReceiver() {
@@ -103,6 +104,22 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 if (waitingToListenForGifts) {
                     waitingToListenForGifts = false;
                     setUpListenerForGifts();
+                }
+                if (currentFragment != null){
+                    if (currentFragment.getClass()==MapFragment.class && waitingToInitialMapSetup){
+                        System.out.println("FOUND INTERNET CHECKING FOR INITIAL MAP SETUP");
+                        waitingToInitialMapSetup = false;
+                        ((MapFragment) currentFragment).initialMapSetup();
+                    }
+                    if (currentFragment.getClass()==MapFragment.class && waitingToUpdateMap){
+                        System.out.println("FOUND INTERNET CHECKING FOR MAP UPDATE");
+                        waitingToUpdateMap = false;
+                        ((MapFragment) currentFragment).checkForMapUpdate();
+                    }
+                }
+                if (waitingToUpdateCoins){
+                    waitingToUpdateCoins = false;
+                    coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, mapUpdateLock, uid));
                 }
             } else {
                 settingUpUserGiftListener = false;
@@ -145,9 +162,13 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
         if (Arrays.stream(testers).anyMatch(uid::equals)) {
-            users += "-test";
-            gifts += "-test";
-            users_gifts += "-test";
+            users = "users-test";
+            gifts = "gifts-test";
+            users_gifts = "users_gifts-test";
+        } else {
+            users = "users";
+            gifts = "gifts";
+            users_gifts = "users_gifts";
         }
 
         System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
@@ -279,9 +300,13 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 // so we can use this to uniquely identify them in the database
                 uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
                 if (Arrays.stream(testers).anyMatch(uid::equals)) {
-                    users += "-test";
-                    gifts += "-test";
-                    users_gifts += "-test";
+                    users = "users-test";
+                    gifts = "gifts-test";
+                    users_gifts = "users_gifts-test";
+                } else {
+                    users = "users";
+                    gifts = "gifts";
+                    users_gifts = "users_gifts";
                 }
                 if (uid.equals("jUpczR30G5R2fvSL7fn4yWNOcbL2")) {
                     resetTestDB();
@@ -386,27 +411,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 Toast.makeText(activity, "Could not connect to the internet, progress offline will be updated in the cloud when connection is established.", Toast.LENGTH_LONG).show();
             }
         });
-        updateCoinsOnInternet();
-    }
-
-    private void updateCoinsOnInternet() {
-        System.out.println("CREATED UPDATE COINS TIMER TASK");
-        TimerTask mTtInternet = new TimerTask() {
-            public void run() {
-                myTimerTaskHandler.post(() -> {
-                    System.out.println("UPDATE COINS TIMER TASK TRIGGERED");
-                    if (isNetworkAvailable()) {
-                        System.out.println("UPDATE COINS TIMER TASK FOUND INTERNET");
-                        coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, mapUpdateLock, uid));
-                    } else {
-                        System.out.println("UPDATE COINS TIMER TASK FOUND NO INTERNET");
-                        updateCoinsOnInternet();
-                    }
-                });
-            }
-        };
-        System.out.println("UPDATE COINS TIMER TASK SCHEDULED");
-        myTimer.schedule(mTtInternet, 5000);
+        waitingToUpdateCoins = true;
     }
 
     @Override
@@ -438,6 +443,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     @Override
     protected void onStart() {
         super.onStart();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+        registerReceiver(networkChangeReciever, intentFilter);
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         // If onStart called, then that means onStop was called prior to it, meaning the timer will
@@ -455,6 +463,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     @Override
     protected void onStop() {
         super.onStop();
+        unregisterReceiver(networkChangeReciever);
         if (userGiftListener != null) {
             userGiftListener.remove();
         }
@@ -616,22 +625,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (navigationView.getMenu().findItem(R.id.nav_balance).isChecked()) {
             ((BalanceFragment) currentFragment).coinsUpdateTaskComplete();
         }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        registerReceiver(networkChangeReciever, intentFilter);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        unregisterReceiver(networkChangeReciever);
     }
 
     private void resetTestDB() {

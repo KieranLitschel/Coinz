@@ -107,7 +107,6 @@ public class ExecuteTradeTask implements Runnable {
             }
             editor.apply();
             if (!activity.waitingToUpdateCoins){
-                activity.waitingToUpdateCoins = true;
                 activity.setToUpdateCoinsOnInternet();
             }
             mapUpdateLock.unlockWrite(lockStamp);
