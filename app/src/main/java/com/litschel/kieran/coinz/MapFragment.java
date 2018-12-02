@@ -78,6 +78,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private Handler myTimerTaskHandler;
     private boolean justCreated;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
+    private String users;
 
     @Override
     public void onAttach(Context context) {
@@ -86,6 +87,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         settings = ((MainActivity) getActivity()).settings;
         db = ((MainActivity) getActivity()).db;
         mapUpdateLock = ((MainActivity) getActivity()).mapUpdateLock;
+        users = ((MainActivity) getActivity()).users;
     }
 
     @Nullable
@@ -393,7 +395,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     private void initialMapSetup() {
-        DocumentReference docRef = db.collection("users").document(((MainActivity) getActivity()).uid);
+        DocumentReference docRef = db.collection(users).document(((MainActivity) getActivity()).uid);
         docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
             @Override
             public void onComplete(@NonNull Task<DocumentSnapshot> task) {
@@ -465,7 +467,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             coinsRemainingTodayDelta = 0;
         }
         mapData.put("coinsRemainingToday", 25 - coinsRemainingTodayDelta);
-        db.collection("users").document(((MainActivity) getActivity()).uid)
+        db.collection(users).document(((MainActivity) getActivity()).uid)
                 .update(mapData)
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
@@ -585,7 +587,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (((MainActivity) getActivity()).isNetworkAvailable()) {
             Map<String, Object> mapData = new HashMap<>();
             mapData.put("map", mapJSONString);
-            db.collection("users").document(((MainActivity) getActivity()).uid)
+            db.collection(users).document(((MainActivity) getActivity()).uid)
                     .update(mapData)
                     .addOnSuccessListener(new OnSuccessListener<Void>() {
                         @Override

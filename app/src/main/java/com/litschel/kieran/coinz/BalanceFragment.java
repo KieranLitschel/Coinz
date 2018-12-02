@@ -177,7 +177,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     // values in the database and settings to execute the trade
     public void executeTrade(String currency, double tradeAmount, double exchangeRate) {
         tradeExecuting = true;
-        new Thread(new ExecuteTradeTask(this, ((MainActivity) getActivity()), db, settings, currencyValues, coinsRemainingToday, currency, tradeAmount, exchangeRate)).start();
+        new Thread(new ExecuteTradeTask(((MainActivity) getActivity()).users, this, ((MainActivity) getActivity()), db, settings, currencyValues, coinsRemainingToday, currency, tradeAmount, exchangeRate)).start();
     }
 
     // This is called once the trade has completed and updates all the values so those displayed

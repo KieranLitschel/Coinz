@@ -30,6 +30,7 @@ public class RemoveMarkersTask implements Runnable {
     private ArrayList<Marker> markersToRemove;
     private SharedPreferences settings;
     private MainActivity activity;
+    private String users;
 
     RemoveMarkersTask(RemoveMarkersCallback context, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
         super();
@@ -40,6 +41,7 @@ public class RemoveMarkersTask implements Runnable {
         this.markersToRemove = markersToRemove;
         this.settings = settings;
         this.activity = activity;
+        this.users = activity.users;
     }
 
     public void run() {
@@ -85,7 +87,7 @@ public class RemoveMarkersTask implements Runnable {
 
         if (markerDetails.size() > 0) {
             final JSONObject mapJSONFinal = mapJSON;
-            final DocumentReference docRef = db.collection("users").document(uid);
+            final DocumentReference docRef = db.collection(users).document(uid);
             // Use transactions as opposed to just querying the database and then writing it as transactions
             // ensure no writes have occured to the fields since they were read, preventing potential
             // synchronization errors

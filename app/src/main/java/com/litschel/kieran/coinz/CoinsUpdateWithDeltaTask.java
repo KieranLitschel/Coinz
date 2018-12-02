@@ -23,19 +23,21 @@ public class CoinsUpdateWithDeltaTask implements Runnable {
     private SharedPreferences settings;
     private StampedLock mapUpdateLock;
     private String uid;
+    private String users;
 
-    CoinsUpdateWithDeltaTask(CoinsUpdateWithDeltaCallback context, FirebaseFirestore db, SharedPreferences settings, StampedLock mapUpdateLock, String uid) {
+    CoinsUpdateWithDeltaTask(String users, CoinsUpdateWithDeltaCallback context, FirebaseFirestore db, SharedPreferences settings, StampedLock mapUpdateLock, String uid) {
         this.context = context;
         this.db = db;
         this.settings = settings;
         this.mapUpdateLock = mapUpdateLock;
         this.uid = uid;
+        this.users = users;
     }
 
     @Override
     public void run() {
         long lockStamp = mapUpdateLock.writeLock();
-        DocumentReference docRef = db.collection("users").document(uid);
+        DocumentReference docRef = db.collection(users).document(uid);
         db.runTransaction(new Transaction.Function<Void>() {
             @Override
             public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {

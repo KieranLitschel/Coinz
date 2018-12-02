@@ -25,7 +25,6 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.QuerySnapshot;
@@ -48,6 +47,9 @@ public class GiftCryptoDialogFragment extends DialogFragment {
     private String selectedCurrency;
     private AlertDialog dialog;
     private Button positiveBtn;
+    private String users;
+    private String gifts;
+    private String users_gifts;
 
     @NonNull
     @Override
@@ -58,6 +60,10 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         LayoutInflater inflater = getActivity().getLayoutInflater();
 
         View view = inflater.inflate(R.layout.dialog_gift_crypto, null);
+
+        users = ((MainActivity) getActivity()).users;
+        gifts = ((MainActivity) getActivity()).gifts;
+        users_gifts = ((MainActivity) getActivity()).users_gifts;
 
         giftAmountEditText = view.findViewById(R.id.giftAmountEditText);
         recipientEditText = view.findViewById(R.id.recipientEditText);
@@ -178,7 +184,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
     }
 
     private void findRecipientByUid(String recipent, String selectedCurrency, double giftAmount) {
-        db.collection("users")
+        db.collection(users)
                 .whereEqualTo("username", recipent)
                 .get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
@@ -198,10 +204,10 @@ public class GiftCryptoDialogFragment extends DialogFragment {
     }
 
     private void sendGiftToRecipient(String recipientUid, String recipient, String selectedCurrency, double giftAmount) {
-        final DocumentReference senderRef = db.collection("users").document(uid);
-        final DocumentReference recipientRef = db.collection("users").document(recipientUid);
-        final DocumentReference recipientGiftRef = db.collection("users_gifts").document(recipientUid);
-        final DocumentReference giftRef = db.collection("gifts").document();
+        final DocumentReference senderRef = db.collection(users).document(uid);
+        final DocumentReference recipientRef = db.collection(users).document(recipientUid);
+        final DocumentReference recipientGiftRef = db.collection(users_gifts).document(recipientUid);
+        final DocumentReference giftRef = db.collection(gifts).document();
         db.runTransaction(new Transaction.Function<Void>() {
             @Nullable
             @Override
@@ -226,9 +232,9 @@ public class GiftCryptoDialogFragment extends DialogFragment {
 
                 transaction.set(giftRef, giftInfo);
 
-                List<String> gifts = (List<String>) recipientGiftSnapshot.get("gifts");
-                gifts.add(giftRef.getId());
-                transaction.update(recipientGiftRef, "gifts", gifts);
+                List<String> giftsList = (List<String>) recipientGiftSnapshot.get("gifts");
+                giftsList.add(giftRef.getId());
+                transaction.update(recipientGiftRef, "gifts", giftsList);
 
 
                 return null;

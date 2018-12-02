@@ -36,6 +36,7 @@ public class LeaderboardFragment extends Fragment {
     private TextView[] golds;
     private TextView top10Txt;
     private FloatingActionButton refreshFAB;
+    private String users;
 
     @Override
     public void onAttach(Context context) {
@@ -43,6 +44,7 @@ public class LeaderboardFragment extends Fragment {
         db = ((MainActivity) Objects.requireNonNull(getActivity())).db;
         uid = ((MainActivity) getActivity()).uid;
         username = ((MainActivity) getActivity()).settings.getString("username", "");
+        users = ((MainActivity) getActivity()).users;
     }
 
     @Nullable
@@ -118,7 +120,7 @@ public class LeaderboardFragment extends Fragment {
                 for (TableRow row : rows) {
                     row.setVisibility(View.GONE);
                 }
-                db.collection("users")
+                db.collection(users)
                         .get()
                         .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                             @Override

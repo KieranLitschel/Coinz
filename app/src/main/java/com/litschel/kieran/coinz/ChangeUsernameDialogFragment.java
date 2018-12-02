@@ -27,6 +27,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
     private boolean isNewUser;
     private String uid;
     private String username;
+    private String users;
     private TextView errorText;
     private AlertDialog dialog;
     private Button positiveBtn;
@@ -35,6 +36,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         db = FirebaseFirestore.getInstance();
+        users = ((MainActivity) getActivity()).users;
 
         LayoutInflater inflater = getActivity().getLayoutInflater();
 
@@ -129,7 +131,7 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                 // this is a prototype, and this approach works with a small scale userbase as changing the
                 // username occurs infrequently.
 
-                DocumentSnapshot usernamesRecord = transaction.get(db.collection("users").document("usernames"));
+                DocumentSnapshot usernamesRecord = transaction.get(db.collection(users).document("usernames"));
 
                 // We check the username is not already in use, in which case we throw an exception so we can inform the user
                 for (String otherUid : usernamesRecord.getData().keySet()) {
@@ -139,9 +141,9 @@ public class ChangeUsernameDialogFragment extends DialogFragment {
                 }
 
                 // We update the users document and the username document with the new username
-                transaction.update(db.collection("users").document("usernames"),
+                transaction.update(db.collection(users).document("usernames"),
                         uid, desiredUsername);
-                transaction.update(db.collection("users").document(uid),
+                transaction.update(db.collection(users).document(uid),
                         "username", desiredUsername);
 
                 // Success

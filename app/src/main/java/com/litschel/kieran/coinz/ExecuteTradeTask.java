@@ -27,8 +27,9 @@ public class ExecuteTradeTask implements Runnable {
     private Double coinsRemainingToday;
     private double tradeAmount;
     private double exchangeRate;
+    private String users;
 
-    ExecuteTradeTask(ExecuteTradeTaskCallback context, MainActivity activity, FirebaseFirestore db, SharedPreferences settings, HashMap<String, Double> currencyValues, Double coinsRemainingToday, String currency, double tradeAmount, double exchangeRate){
+    ExecuteTradeTask(String users, ExecuteTradeTaskCallback context, MainActivity activity, FirebaseFirestore db, SharedPreferences settings, HashMap<String, Double> currencyValues, Double coinsRemainingToday, String currency, double tradeAmount, double exchangeRate){
         this.context = context;
         this.activity = activity;
         this.db = db;
@@ -39,6 +40,7 @@ public class ExecuteTradeTask implements Runnable {
         this.coinsRemainingToday = coinsRemainingToday;
         this.tradeAmount = tradeAmount;
         this.exchangeRate = exchangeRate;
+        this.users = users;
     }
 
     @Override
@@ -53,7 +55,7 @@ public class ExecuteTradeTask implements Runnable {
             editor.putString("GOLD", Double.toString(currencyValues.get("GOLD")));
             editor.putString("coinsRemainingToday", Double.toString(coinsRemainingToday));
             editor.apply();
-            DocumentReference docRef = db.collection("users").document(activity.uid);
+            DocumentReference docRef = db.collection(users).document(activity.uid);
             db.runTransaction(new Transaction.Function<Void>() {
                 @Override
                 public Void apply(Transaction transaction) throws FirebaseFirestoreException {

@@ -40,6 +40,8 @@ import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Transaction;
 import com.google.firebase.firestore.WriteBatch;
 import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
@@ -58,6 +60,22 @@ import java.util.concurrent.locks.StampedLock;
 
 public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback, CoinsUpdateWithDeltaCallback, CoinsUpdateTaskCallback {
 
+    private String[] testers = new String[]{
+            "BA9AZoUmESQVZVHNTW6NjlodXwh1",
+            "G7rnXhmxzthJM0my6jmK75Tj7uT2",
+            "RDu5z5yUI0YJdRY1RQoMSuzQepB2",
+            "Tt5gSJ6Pn5UTzi9hrOGXDlKxttR2",
+            "Y6485gGEphRbceltfHjCZ5vpgsq2",
+            "jUpczR30G5R2fvSL7fn4yWNOcbL2",
+            "lu5b4HKiTNNXVcUmR7PdigsfE9C2",
+            "lvAiptUeJyVSnQx0HZYZ7XBxpon2",
+            "tcHsedoaMhdCbzv3Lb8WRcIVEhG2",
+            "vhrUoewF1xVEG4v5ZYu0Fjqn0343",
+            "yGtqu91xqPTTEDRsYAkt0fWTko12"
+    };
+    public String users = "users";
+    public String gifts = "gifts";
+    public String users_gifts = "users_gifts";
     private MainActivity activity = this;
     public SharedPreferences settings;
     private final String settingsFile = "SettingsFile";
@@ -81,15 +99,15 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private BroadcastReceiver networkChangeReciever = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (activity.isNetworkAvailable()){
-                if (waitingToListenForGifts){
+            if (activity.isNetworkAvailable()) {
+                if (waitingToListenForGifts) {
                     waitingToListenForGifts = false;
                     setUpListenerForGifts();
                 }
             } else {
                 settingUpUserGiftListener = false;
                 waitingToListenForGifts = true;
-                if (userGiftListener != null){
+                if (userGiftListener != null) {
                     userGiftListener.remove();
                 }
                 userGiftListener = null;
@@ -126,6 +144,11 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
+        if (Arrays.stream(testers).anyMatch(uid::equals)) {
+            users += "-test";
+            gifts += "-test";
+            users_gifts += "-test";
+        }
 
         System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
 
@@ -255,10 +278,16 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 // When only using one sign in method (in this case email), the uid for each user is unique
                 // so we can use this to uniquely identify them in the database
                 uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-                SharedPreferences.Editor editor = settings.edit();
-                editor.putString("uid", uid);
-                editor.apply();
-                checkFirstTimeUser();
+                if (Arrays.stream(testers).anyMatch(uid::equals)) {
+                    users += "-test";
+                    gifts += "-test";
+                    users_gifts += "-test";
+                }
+                if (uid.equals("jUpczR30G5R2fvSL7fn4yWNOcbL2")) {
+                    resetTestDB();
+                } else {
+                    setupAfterUid();
+                }
                 // ...
             } else {
                 if (response != null) {
@@ -274,8 +303,15 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         }
     }
 
+    private void setupAfterUid() {
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("uid", uid);
+        editor.apply();
+        checkFirstTimeUser();
+    }
+
     private void checkFirstTimeUser() {
-        DocumentReference docRef = db.collection("users").document(uid);
+        DocumentReference docRef = db.collection(users).document(uid);
         System.out.println("CHECKING IF USER EXISTS IN DATABASE");
         docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
             @Override
@@ -300,7 +336,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private void setFirstTimeUser() {
         WriteBatch batch = db.batch();
 
-        DocumentReference userDocRef = db.collection("users").document(uid);
+        DocumentReference userDocRef = db.collection(users).document(uid);
         Map<String, Object> user_defaults = new HashMap<>();
         user_defaults.put("username", "");
         for (String currency : currencies) {
@@ -312,7 +348,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         batch.set(userDocRef, user_defaults);
 
         // We store gifts in a separate document to make listening for changes simpler
-        DocumentReference userGiftDocRef = db.collection("users_gifts").document(uid);
+        DocumentReference userGiftDocRef = db.collection(users_gifts).document(uid);
         Map<String, Object> user_gift_defaults = new HashMap<>();
         user_gift_defaults.put("gifts", new ArrayList<String>());
         batch.set(userGiftDocRef, user_gift_defaults);
@@ -361,7 +397,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     System.out.println("UPDATE COINS TIMER TASK TRIGGERED");
                     if (isNetworkAvailable()) {
                         System.out.println("UPDATE COINS TIMER TASK FOUND INTERNET");
-                        coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(activity, db, settings, mapUpdateLock, uid));
+                        coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, mapUpdateLock, uid));
                     } else {
                         System.out.println("UPDATE COINS TIMER TASK FOUND NO INTERNET");
                         updateCoinsOnInternet();
@@ -445,7 +481,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
     private void showGifts() {
 
-        final DocumentReference usernamesDocRef = db.collection("users").document("usernames");
+        final DocumentReference usernamesDocRef = db.collection(users).document("usernames");
         usernamesDocRef
                 .get()
                 .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
@@ -456,7 +492,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                             DocumentSnapshot usernames = task.getResult();
                             if (usernames.exists()) {
                                 System.out.println("GOT USERNAMES DOC");
-                                final DocumentReference userGiftsDocRef = db.collection("users_gifts").document(uid);
+                                final DocumentReference userGiftsDocRef = db.collection(users_gifts).document(uid);
                                 // We show all the gifts already stored
                                 System.out.println("GETTING NEW GIFTS");
                                 db.runTransaction(new Transaction.Function<ArrayList<String[]>>() {
@@ -475,7 +511,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                         ArrayList<DocumentReference> giftDocRefs = new ArrayList<>();
 
                                         for (String giftID : giftIDs) {
-                                            DocumentReference giftDocRef = db.collection("gifts").document(giftID);
+                                            DocumentReference giftDocRef = db.collection(gifts).document(giftID);
                                             giftDocRefs.add(giftDocRef);
                                             DocumentSnapshot giftSnapshot = transaction.get(giftDocRef);
                                             String senderName = usernames.getString(giftSnapshot.getString("senderUid"));
@@ -540,7 +576,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (!uid.equals("") && !settingUpUserGiftListener && userGiftListener == null && !waitingToListenForGifts) {
 
             if (isNetworkAvailable()) {
-                final DocumentReference userGiftsDocRef = db.collection("users_gifts").document(uid);
+                final DocumentReference userGiftsDocRef = db.collection(users_gifts).document(uid);
 
                 userGiftListener = userGiftsDocRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
                     @Override
@@ -596,5 +632,64 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         super.onPause();
 
         unregisterReceiver(networkChangeReciever);
+    }
+
+    private void resetTestDB() {
+        db.collection("users-test")
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if (task.isSuccessful()) {
+                            ArrayList<String> testUsers = new ArrayList<>();
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                if (!document.getId().equals("DEFAULT") && !document.getId().equals("usernames")) {
+                                    testUsers.add(document.getId());
+                                }
+                            }
+                            db.collection("gifts-test")
+                                    .get()
+                                    .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                                            if (task.isSuccessful()) {
+                                                ArrayList<String> testGifts = new ArrayList<>();
+                                                for (QueryDocumentSnapshot document : task.getResult()) {
+                                                    if (!document.getId().equals("DEFAULT")) {
+                                                        testGifts.add(document.getId());
+                                                    }
+                                                }
+
+                                                WriteBatch batch = db.batch();
+                                                for (String testUser : testUsers) {
+                                                    DocumentReference usersRef = db.collection("users-test").document(testUser);
+                                                    batch.delete(usersRef);
+                                                    DocumentReference usersGiftsRef = db.collection("users_gifts-test").document(testUser);
+                                                    batch.delete(usersGiftsRef);
+                                                }
+                                                Map<String, Object> usernamesData = new HashMap<>();
+                                                usernamesData.put("DEFAULT", "");
+                                                batch.set(db.collection("users-test").document("usernames"), usernamesData);
+                                                for (String gift : testGifts) {
+                                                    DocumentReference giftRef = db.collection("gifts-test").document(gift);
+                                                    batch.delete(giftRef);
+                                                }
+                                                batch.commit().addOnCompleteListener(new OnCompleteListener<Void>() {
+                                                    @Override
+                                                    public void onComplete(@NonNull Task<Void> task) {
+                                                        System.out.println("DELETED USERS TEST DB");
+                                                        setupAfterUid();
+                                                    }
+                                                });
+                                            } else {
+                                                System.out.println("FAILED TO DELETE USERS TEST DB");
+                                            }
+                                        }
+                                    });
+                        } else {
+                            System.out.println("FAILED TO DELETE USERS TEST DB");
+                        }
+                    }
+                });
     }
 }
