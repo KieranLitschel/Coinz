@@ -128,17 +128,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
             }
         });
-
-        FloatingActionButton fab = (FloatingActionButton) view.findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // GET RID OF BEFORE SUBMISSION
-                ArrayList<Marker> markersToRemove = new ArrayList<>();
-                markersToRemove.add(markers.get(0));
-                removeMarkers(markersToRemove);
-            }
-        });
     }
 
     private void initialSetup() {
