@@ -79,6 +79,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private boolean justCreated;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
     private String users;
+    private HashMap<Marker, String> markerIds;
 
     @Override
     public void onAttach(Context context) {
@@ -236,7 +237,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
         // Use an executor to avoid having to create new threads which is expensive
-        mapUpdateExecutor.submit(new RemoveMarkersTask(this, mapUpdateLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
+        mapUpdateExecutor.submit(new RemoveMarkersTask(this, markerIds, mapUpdateLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
     }
 
     private void setToUpdateAtMidnight() {
@@ -490,6 +491,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
     public void updateMarkers(String mapJSONString, long lockStamp) {
         markers = new ArrayList<>();
+        markerIds = new HashMap<>();
         if (!mapJSONString.equals("")) {
             try {
                 JSONObject mapJSON = new JSONObject(mapJSONString);
@@ -499,12 +501,16 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                     JSONArray pos = markerJSON.getJSONObject("geometry").getJSONArray("coordinates");
                     Icon icon = ThirdPartyMethods.drawableToIcon(activity, R.drawable.marker_icon,
                             Color.parseColor(markerJSON.getJSONObject("properties").getString("marker-color")));
+                    String value = markerJSON.getJSONObject("properties").getString("value");
+                    String currency = markerJSON.getJSONObject("properties").getString("currency");
                     MarkerOptions markerOption = new MarkerOptions()
                             .position(new LatLng(Double.parseDouble(pos.getString(1)),
                                     Double.parseDouble(pos.getString(0))))
-                            .title(markerJSON.getJSONObject("properties").getString("id"))
+                            .title(value+" "+currency)
                             .icon(icon);
-                    markers.add(markerOption.getMarker());
+                    Marker newMarker = markerOption.getMarker();
+                    markerIds.put(newMarker, markerJSON.getJSONObject("properties").getString("id"));
+                    markers.add(newMarker);
                     map.addMarker(markerOption);
                 }
                 System.out.println("ADDED NEW MARKERS TO MAP");
@@ -530,7 +536,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             });
             markers.remove(marker);
             coinsCollected.add(markerDetails.get(marker));
-            System.out.println("Removed marker " + marker.getTitle());
+            System.out.println("Removed marker " + markerIds.get(marker));
+            markerIds.remove(marker);
         }
         if (coinsCollected.size() == 1) {
             String currency = coinsCollected.get(0)[0];

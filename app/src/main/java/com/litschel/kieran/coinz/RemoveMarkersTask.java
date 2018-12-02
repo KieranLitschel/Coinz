@@ -31,8 +31,9 @@ public class RemoveMarkersTask implements Runnable {
     private SharedPreferences settings;
     private MainActivity activity;
     private String users;
+    private HashMap<Marker, String> markerIds;
 
-    RemoveMarkersTask(RemoveMarkersCallback context, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
+    RemoveMarkersTask(RemoveMarkersCallback context, HashMap<Marker, String> markerIds, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<Marker> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
         this.mapUpdateLock = mapUpdateLock;
@@ -42,6 +43,7 @@ public class RemoveMarkersTask implements Runnable {
         this.settings = settings;
         this.activity = activity;
         this.users = activity.users;
+        this.markerIds = markerIds;
     }
 
     public void run() {
@@ -62,7 +64,8 @@ public class RemoveMarkersTask implements Runnable {
             while (i < markersJSON.length() && removed < markersToRemove.size()) {
                 JSONObject markerJSON = markersJSON.getJSONObject(i);
                 for (Marker marker : markersToRemove) {
-                    if (marker.getTitle().equals(markerJSON.getJSONObject("properties").getString("id"))) {
+                    String markerTitle = markerIds.getOrDefault(marker, "");
+                    if (markerTitle.equals(markerJSON.getJSONObject("properties").getString("id"))) {
                         String currency = markerJSON.getJSONObject("properties").getString("currency");
                         String value = markerJSON.getJSONObject("properties").getString("value");
                         markerDetails.put(marker, new String[]{
@@ -91,7 +94,7 @@ public class RemoveMarkersTask implements Runnable {
             // Use transactions as opposed to just querying the database and then writing it as transactions
             // ensure no writes have occured to the fields since they were read, preventing potential
             // synchronization errors
-            if (activity.isNetworkAvailable()){
+            if (activity.isNetworkAvailable()) {
                 db.runTransaction(new Transaction.Function<Void>() {
                     @Override
                     public Void apply(Transaction transaction) throws FirebaseFirestoreException {
@@ -107,7 +110,7 @@ public class RemoveMarkersTask implements Runnable {
                         }
                         SharedPreferences.Editor editor = settings.edit();
                         for (String currency : currencies) {
-                            editor.putString(currency,Double.toString((double) newValues.get(currency)));
+                            editor.putString(currency, Double.toString((double) newValues.get(currency)));
                         }
                         editor.apply();
                         transaction.update(docRef, newValues);
@@ -129,7 +132,7 @@ public class RemoveMarkersTask implements Runnable {
             } else {
                 HashMap<String, Double> newDeltas = new HashMap<>();
                 for (String currency : currencies) {
-                    newDeltas.put(currency, Double.parseDouble(settings.getString(currency+"Delta","0")));
+                    newDeltas.put(currency, Double.parseDouble(settings.getString(currency + "Delta", "0")));
                 }
                 for (Marker marker : markerDetails.keySet()) {
                     String currency = markerDetails.get(marker)[0];
@@ -137,11 +140,11 @@ public class RemoveMarkersTask implements Runnable {
                     newDeltas.put(currency, newDeltas.get(currency) + value);
                 }
                 SharedPreferences.Editor editor = settings.edit();
-                for (String currency : currencies){
-                    editor.putString(currency+"Delta",Double.toString(newDeltas.get(currency)));
+                for (String currency : currencies) {
+                    editor.putString(currency + "Delta", Double.toString(newDeltas.get(currency)));
                 }
                 editor.apply();
-                if (!activity.waitingToUpdateCoins){
+                if (!activity.waitingToUpdateCoins) {
                     activity.waitingToUpdateCoins = true;
                     activity.setToUpdateCoinsOnInternet();
                 }
