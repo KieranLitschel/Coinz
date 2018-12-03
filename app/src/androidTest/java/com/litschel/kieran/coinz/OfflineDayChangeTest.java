@@ -35,12 +35,11 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Test whether the map downloaded correctly by looking at the exchange rates and making sure they
-// match those for the fixed date for testers (1st December 2018)
+// Tests whether the map downloads correctly
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class MapDownloadTest {
+public class OfflineDayChangeTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -144,6 +143,63 @@ public class MapDownloadTest {
             e.printStackTrace();
         }
 
+        // Turn off the internet
+
+        ViewInteraction floatingActionButton = onView(
+                allOf(withId(R.id.internetButton),
+                        childAtPosition(
+                                allOf(withId(R.id.content_frame),
+                                        childAtPosition(
+                                                withId(R.id.drawer_layout),
+                                                0)),
+                                0),
+                        isDisplayed()));
+        floatingActionButton.perform(click());
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Change day, triggering action for downloading map when offline
+
+        ViewInteraction floatingActionButton2 = onView(
+                allOf(withId(R.id.changeDayButton),
+                        childAtPosition(
+                                allOf(withId(R.id.content_frame),
+                                        childAtPosition(
+                                                withId(R.id.drawer_layout),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        floatingActionButton2.perform(click());
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Turn internet back on, new map should download shortly after
+
+        ViewInteraction floatingActionButton3 = onView(
+                allOf(withId(R.id.internetButton),
+                        childAtPosition(
+                                allOf(withId(R.id.content_frame),
+                                        childAtPosition(
+                                                withId(R.id.drawer_layout),
+                                                0)),
+                                0),
+                        isDisplayed()));
+        floatingActionButton3.perform(click());
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // Open the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
@@ -169,7 +225,7 @@ public class MapDownloadTest {
 
         // Open the exchange dialog fragment
 
-        ViewInteraction floatingActionButton = onView(
+        ViewInteraction floatingActionButton4 = onView(
                 allOf(withId(R.id.exchangeCryptoBtn),
                         childAtPosition(
                                 childAtPosition(
@@ -177,12 +233,12 @@ public class MapDownloadTest {
                                         0),
                                 1),
                         isDisplayed()));
-        floatingActionButton.perform(click());
+        floatingActionButton4.perform(click());
 
         // Check the displayed exchange rate for PENY is correct
 
         ViewInteraction textView = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n31.419880647886657"),
+                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n26.929289186115238"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -190,7 +246,7 @@ public class MapDownloadTest {
                                                 0)),
                                 2),
                         isDisplayed()));
-        textView.check(matches(withText("Exchange rate:\n31.419880647886657")));
+        textView.check(matches(withText("Exchange rate:\n26.929289186115238")));
 
         // Change to an exchange for DOLR and make sure the displayed exchange rate is correct
 
@@ -214,7 +270,7 @@ public class MapDownloadTest {
 
 
         ViewInteraction textView2 = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n19.617170372971632"),
+                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n32.01053319604642"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -222,7 +278,7 @@ public class MapDownloadTest {
                                                 0)),
                                 2),
                         isDisplayed()));
-        textView2.check(matches(withText("Exchange rate:\n19.617170372971632")));
+        textView2.check(matches(withText("Exchange rate:\n32.01053319604642")));
 
         // Change to an exchange for SHIL and make sure the displayed exchange rate is correct
 
@@ -242,7 +298,7 @@ public class MapDownloadTest {
                 .perform(click());
 
         ViewInteraction textView3 = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n49.18133521977366"),
+                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n17.55867199874981"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -250,7 +306,7 @@ public class MapDownloadTest {
                                                 0)),
                                 2),
                         isDisplayed()));
-        textView3.check(matches(withText("Exchange rate:\n49.18133521977366")));
+        textView3.check(matches(withText("Exchange rate:\n17.55867199874981")));
 
         // Change to an exchange for QUID and make sure the displayed exchange rate is correct
 
@@ -270,7 +326,7 @@ public class MapDownloadTest {
                 .perform(click());
 
         ViewInteraction textView4 = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n54.02282290035586"),
+                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n32.167432074332574"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -278,7 +334,7 @@ public class MapDownloadTest {
                                                 0)),
                                 2),
                         isDisplayed()));
-        textView4.check(matches(withText("Exchange rate:\n54.02282290035586")));
+        textView4.check(matches(withText("Exchange rate:\n32.167432074332574")));
 
         // Exit the exchange and log out of the app to preprare for the next test
 
