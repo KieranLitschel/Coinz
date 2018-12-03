@@ -14,6 +14,7 @@ import android.view.ViewParent;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +50,11 @@ public class MapDownloadTest {
     public GrantPermissionRule mGrantPermissionRule =
             GrantPermissionRule.grant(
                     "android.permission.ACCESS_FINE_LOCATION");
+
+    @Before
+    public void beforeTest(){
+        DatabaseMethods.resetTestDB();
+    }
 
     @Test
     public void mapDownloadTest() {

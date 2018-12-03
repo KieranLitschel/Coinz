@@ -32,14 +32,14 @@ import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
-// In this test we test collecting coins. Testing collecting coins using the location listener is
-// not reliable as the emulator combined with mapbox does not seem to track location reliably. To
-// overcome this I've added a button to collect the next coin in the markers array, which executes
-// the same functionality as if a player collected that coin by going to the location of it.
+// In this test we test whether the progress is being saved in the cloud. We test this by changing
+// our balance by collecting coins and then exchanging them, and then logging out (which clears all
+// local values), and then logging back in (which redownloads the values from the cloud). Finally
+// we check whether the balances are as expected to finish the test.
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class CollectCoinsTest {
+public class ProgressSaved {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -55,7 +55,7 @@ public class CollectCoinsTest {
     }
 
     @Test
-    public void collectCoinsTest() {
+    public void progressSaved() {
 
         // Login
 
@@ -219,90 +219,111 @@ public class CollectCoinsTest {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton5 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton5.perform(click());
+        // Logout
 
+        ViewInteraction appCompatImageButtonLogout = onView(
+                allOf(withContentDescription("Navigate up"),
+                        childAtPosition(
+                                allOf(withId(R.id.toolbar),
+                                        childAtPosition(
+                                                withId(R.id.content_frame),
+                                                2)),
+                                1),
+                        isDisplayed()));
+        appCompatImageButtonLogout.perform(click());
+
+        ViewInteraction navigationMenuItemViewLogout = onView(
+                allOf(childAtPosition(
+                        allOf(withId(R.id.design_navigation_view),
+                                childAtPosition(
+                                        withId(R.id.nav_view),
+                                        0)),
+                        4),
+                        isDisplayed()));
+        navigationMenuItemViewLogout.perform(click());
+
+        // Login
+
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(4500);
+            Thread.sleep(3500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton6 = onView(
-                allOf(withId(R.id.collectCoinFAB),
+        ViewInteraction textInputEditTextLogin = onView(
+                allOf(withId(R.id.email),
                         childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton6.perform(click());
+                                childAtPosition(
+                                        withId(R.id.email_layout),
+                                        0),
+                                0)));
+        textInputEditTextLogin.perform(scrollTo(), click());
 
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(4500);
+            Thread.sleep(500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton7 = onView(
-                allOf(withId(R.id.collectCoinFAB),
+        ViewInteraction textInputEditTextLogin2 = onView(
+                allOf(withId(R.id.email),
                         childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton7.perform(click());
+                                childAtPosition(
+                                        withId(R.id.email_layout),
+                                        0),
+                                0)));
+        textInputEditTextLogin2.perform(scrollTo(), replaceText("tester1@coinz.litschel.com"), closeSoftKeyboard());
 
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(4500);
+            Thread.sleep(500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton8 = onView(
-                allOf(withId(R.id.collectCoinFAB),
+        ViewInteraction appCompatButtonLogin = onView(
+                allOf(withId(R.id.button_next), withText("Next"),
                         childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton8.perform(click());
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                1)));
+        appCompatButtonLogin.perform(scrollTo(), click());
 
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(4500);
+            Thread.sleep(3500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton9 = onView(
-                allOf(withId(R.id.collectCoinFAB),
+        ViewInteraction textInputEditTextLogin3 = onView(
+                allOf(withId(R.id.password),
                         childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton9.perform(click());
+                                childAtPosition(
+                                        withId(R.id.password_layout),
+                                        0),
+                                0)));
+        textInputEditTextLogin3.perform(scrollTo(), replaceText("test1234"), closeSoftKeyboard());
 
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        ViewInteraction appCompatButtonLogin2 = onView(
+                allOf(withId(R.id.button_done), withText("Sign in"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                4)));
+        appCompatButtonLogin2.perform(scrollTo(), click());
 
         // Go to the balance fragment
 
@@ -326,6 +347,15 @@ public class CollectCoinsTest {
                         2),
                         isDisplayed()));
         navigationMenuItemView.perform(click());
+
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
+        try {
+            Thread.sleep(3500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Check the balances updated as expected
 
@@ -352,7 +382,7 @@ public class CollectCoinsTest {
         textView2.check(matches(withText("PENY:\n6.679450014816521\n")));
 
         ViewInteraction textView3 = onView(
-                allOf(withId(R.id.DOLRText), withText("DOLR:\n6.780261952440848\n"),
+                allOf(withId(R.id.DOLRText), withText("DOLR:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.DOLRRow),
                                         childAtPosition(
@@ -360,10 +390,10 @@ public class CollectCoinsTest {
                                                 2)),
                                 0),
                         isDisplayed()));
-        textView3.check(matches(withText("DOLR:\n6.780261952440848\n")));
+        textView3.check(matches(withText("DOLR:\n0.0\n")));
 
         ViewInteraction textView4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n27.139268122070483\n"),
+                allOf(withId(R.id.SHILText), withText("SHIL:\n12.57541532608107\n"),
                         childAtPosition(
                                 allOf(withId(R.id.SHILRow),
                                         childAtPosition(
@@ -371,10 +401,10 @@ public class CollectCoinsTest {
                                                 3)),
                                 0),
                         isDisplayed()));
-        textView4.check(matches(withText("SHIL:\n27.139268122070483\n")));
+        textView4.check(matches(withText("SHIL:\n12.57541532608107\n")));
 
         ViewInteraction textView5 = onView(
-                allOf(withId(R.id.QUIDText), withText("QUID:\n15.475834848170207\n"),
+                allOf(withId(R.id.QUIDText), withText("QUID:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.QUIDRow),
                                         childAtPosition(
@@ -382,7 +412,7 @@ public class CollectCoinsTest {
                                                 4)),
                                 0),
                         isDisplayed()));
-        textView5.check(matches(withText("QUID:\n15.475834848170207\n")));
+        textView5.check(matches(withText("QUID:\n0.0\n")));
 
         // Logout to prepare for the next test
 

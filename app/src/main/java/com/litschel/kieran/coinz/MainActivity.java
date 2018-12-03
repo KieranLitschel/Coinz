@@ -323,11 +323,10 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 // so we can use this to uniquely identify them in the database
                 uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
                 setupIfTester();
-                if (uid.equals("ROtiCeFTuIZ3xNOhEweThG3htXj1")) {
-                    resetTestDB();
-                } else {
-                    setupAfterUid();
-                }
+                SharedPreferences.Editor editor = settings.edit();
+                editor.putString("uid", uid);
+                editor.apply();
+                checkFirstTimeUser();
                 // ...
             } else {
                 if (response != null) {
@@ -341,13 +340,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 }
             }
         }
-    }
-
-    private void setupAfterUid() {
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putString("uid", uid);
-        editor.apply();
-        checkFirstTimeUser();
     }
 
     private void checkFirstTimeUser() {
@@ -648,65 +640,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (navigationView.getMenu().findItem(R.id.nav_balance).isChecked()) {
             ((BalanceFragment) currentFragment).coinsUpdateTaskComplete();
         }
-    }
-
-    private void resetTestDB() {
-        db.collection("users-test")
-                .get()
-                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                        if (task.isSuccessful()) {
-                            ArrayList<String> testUsers = new ArrayList<>();
-                            for (QueryDocumentSnapshot document : task.getResult()) {
-                                if (!document.getId().equals("DEFAULT") && !document.getId().equals("usernames")) {
-                                    testUsers.add(document.getId());
-                                }
-                            }
-                            db.collection("gifts-test")
-                                    .get()
-                                    .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                                        @Override
-                                        public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                                            if (task.isSuccessful()) {
-                                                ArrayList<String> testGifts = new ArrayList<>();
-                                                for (QueryDocumentSnapshot document : task.getResult()) {
-                                                    if (!document.getId().equals("DEFAULT")) {
-                                                        testGifts.add(document.getId());
-                                                    }
-                                                }
-
-                                                WriteBatch batch = db.batch();
-                                                for (String testUser : testUsers) {
-                                                    DocumentReference usersRef = db.collection("users-test").document(testUser);
-                                                    batch.delete(usersRef);
-                                                    DocumentReference usersGiftsRef = db.collection("users_gifts-test").document(testUser);
-                                                    batch.delete(usersGiftsRef);
-                                                }
-                                                Map<String, Object> usernamesData = new HashMap<>();
-                                                usernamesData.put("DEFAULT", "");
-                                                batch.set(db.collection("users-test").document("usernames"), usernamesData);
-                                                for (String gift : testGifts) {
-                                                    DocumentReference giftRef = db.collection("gifts-test").document(gift);
-                                                    batch.delete(giftRef);
-                                                }
-                                                batch.commit().addOnCompleteListener(new OnCompleteListener<Void>() {
-                                                    @Override
-                                                    public void onComplete(@NonNull Task<Void> task) {
-                                                        System.out.println("DELETED USERS TEST DB");
-                                                        setupAfterUid();
-                                                    }
-                                                });
-                                            } else {
-                                                System.out.println("FAILED TO DELETE USERS TEST DB");
-                                            }
-                                        }
-                                    });
-                        } else {
-                            System.out.println("FAILED TO DELETE USERS TEST DB");
-                        }
-                    }
-                });
     }
 
     public LocalDate localDateNow() {
