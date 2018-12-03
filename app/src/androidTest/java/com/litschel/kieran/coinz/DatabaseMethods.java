@@ -3,6 +3,8 @@ package com.litschel.kieran.coinz;
 import android.support.annotation.NonNull;
 
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -10,6 +12,7 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.WriteBatch;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,6 +73,50 @@ class DatabaseMethods {
                         } else {
                             System.out.println("FAILED TO DELETE USERS TEST DB");
                         }
+                    }
+                });
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    static void setupTester1WithFiftyQUID(){
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL"};
+        String uid = "ROtiCeFTuIZ3xNOhEweThG3htXj1";
+        WriteBatch batch = db.batch();
+
+        DocumentReference userDocRef = db.collection("users-test").document(uid);
+        Map<String, Object> user_defaults = new HashMap<>();
+        user_defaults.put("username", "");
+        for (String currency : currencies) {
+            user_defaults.put(currency, 0.0);
+        }
+        user_defaults.put("QUID", 50.0);
+        user_defaults.put("coinsRemainingToday", 0.0);
+        user_defaults.put("map", "");
+        user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
+        batch.set(userDocRef, user_defaults);
+
+        // We store gifts in a separate document to make listening for changes simpler
+        DocumentReference userGiftDocRef = db.collection("users_gifts-test").document(uid);
+        Map<String, Object> user_gift_defaults = new HashMap<>();
+        user_gift_defaults.put("gifts", new ArrayList<String>());
+        batch.set(userGiftDocRef, user_gift_defaults);
+
+        batch.commit()
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        System.out.println("FAILED TO ADD USER TO DATABASE");
                     }
                 });
         try {

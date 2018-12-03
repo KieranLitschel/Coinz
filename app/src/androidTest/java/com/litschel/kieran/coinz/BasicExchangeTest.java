@@ -1,6 +1,7 @@
 package com.litschel.kieran.coinz;
 
 
+import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -18,28 +19,29 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static android.support.test.espresso.action.ViewActions.replaceText;
 import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// In this test we test whether the progress is being saved in the cloud. We test this by changing
-// our balance by collecting coins and then exchanging them, and then logging out (which clears all
-// local values), and then logging back in (which redownloads the values from the cloud). Finally
-// we check whether the balances are as expected to finish the test.
+// Test whether the map downloaded correctly by looking at the exchange rates and making sure they
+// match those for the fixed date for testers (1st December 2018)
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class ProgressSaved {
+public class BasicExchangeTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -52,11 +54,11 @@ public class ProgressSaved {
     @Before
     public void beforeTest(){
         DatabaseMethods.resetTestDB();
+        DatabaseMethods.setupTester1WithFiftyQUID();
     }
 
     @Test
-    public void progressSaved() {
-
+    public void basicExchangeTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -140,8 +142,6 @@ public class ProgressSaved {
                                 4)));
         appCompatButton2.perform(scrollTo(), click());
 
-        // Click the collect coins button enough times to have collected some of each coin
-
         // Added a sleep statement to match the app's execution delay.
         // The recommended way to handle such scenarios is to use Espresso idling resources:
         // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
@@ -151,181 +151,7 @@ public class ProgressSaved {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton2 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton2.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton3 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton3.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton4 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton4.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Logout
-
-        ViewInteraction appCompatImageButtonLogout = onView(
-                allOf(withContentDescription("Navigate up"),
-                        childAtPosition(
-                                allOf(withId(R.id.toolbar),
-                                        childAtPosition(
-                                                withId(R.id.content_frame),
-                                                2)),
-                                1),
-                        isDisplayed()));
-        appCompatImageButtonLogout.perform(click());
-
-        ViewInteraction navigationMenuItemViewLogout = onView(
-                allOf(childAtPosition(
-                        allOf(withId(R.id.design_navigation_view),
-                                childAtPosition(
-                                        withId(R.id.nav_view),
-                                        0)),
-                        4),
-                        isDisplayed()));
-        navigationMenuItemViewLogout.perform(click());
-
-        // Login
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(3500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditTextLogin = onView(
-                allOf(withId(R.id.email),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.email_layout),
-                                        0),
-                                0)));
-        textInputEditTextLogin.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditTextLogin2 = onView(
-                allOf(withId(R.id.email),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.email_layout),
-                                        0),
-                                0)));
-        textInputEditTextLogin2.perform(scrollTo(), replaceText("tester1@coinz.litschel.com"), closeSoftKeyboard());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction appCompatButtonLogin = onView(
-                allOf(withId(R.id.button_next), withText("Next"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                1)));
-        appCompatButtonLogin.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(3500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditTextLogin3 = onView(
-                allOf(withId(R.id.password),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.password_layout),
-                                        0),
-                                0)));
-        textInputEditTextLogin3.perform(scrollTo(), replaceText("test1234"), closeSoftKeyboard());
-
-        ViewInteraction appCompatButtonLogin2 = onView(
-                allOf(withId(R.id.button_done), withText("Sign in"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                4)));
-        appCompatButtonLogin2.perform(scrollTo(), click());
-
-        // Go to the balance fragment
+        // Open the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
                 allOf(withContentDescription("Navigate up"),
@@ -348,19 +174,119 @@ public class ProgressSaved {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
+        // Open the exchange dialog fragment
+
+        ViewInteraction floatingActionButton = onView(
+                allOf(withId(R.id.exchangeCryptoBtn),
+                        childAtPosition(
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                1),
+                        isDisplayed()));
+        floatingActionButton.perform(click());
+
+        // Exchange 25 QUID for GOLD
+
+        ViewInteraction appCompatSpinner3 = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        appCompatSpinner3.perform(click());
+
+        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
+
+        ViewInteraction appCompatEditText = onView(
+                allOf(withId(R.id.tradeAmountEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatEditText.perform(replaceText("25"), closeSoftKeyboard());
+
+        // CHECK EXCHANGE RATE IS CORRECT
+
+        ViewInteraction textView = onView(
+                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n54.02282290035586"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        textView.check(matches(withText("Exchange rate:\n54.02282290035586")));
+
+        // CHECK EDIT TEXT IS CORRECT
+
+        ViewInteraction editText = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("25"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        editText.check(matches(withText("25")));
+
+        // CHECK OFFERED CRYPTO IS CORRECT
+
+        ViewInteraction textView2 = onView(
+                allOf(withId(R.id.offeredGoldText), withText("Offered gold for crypto:\n1350.5705725088965"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                4),
+                        isDisplayed()));
+        textView2.check(matches(withText("Offered gold for crypto:\n1350.5705725088965")));
+
+        // CHECK REMAINING CRYPTO BANK WILL ACCEPT TODAY IS CORRECT
+
+        ViewInteraction textView3 = onView(
+                allOf(withId(R.id.coinsRemainingToday), withText("Remaining crypto bank will accept today:\n0.0"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                5),
+                        isDisplayed()));
+        textView3.check(matches(withText("Remaining crypto bank will accept today:\n0.0")));
+
+        // CLICK ACCEPT TRADE BUTTON
+
+        ViewInteraction appCompatButton4 = onView(
+                allOf(withId(android.R.id.button1), withText("Accept Trade"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButton4.perform(scrollTo(), click());
+
         try {
-            Thread.sleep(3500);
+            Thread.sleep(5000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         // Check the balances updated as expected
 
-        ViewInteraction textView = onView(
-                allOf(withId(R.id.GOLDText), withText("GOLD:\n0.0\n"),
+        ViewInteraction textViewBal = onView(
+                allOf(withId(R.id.GOLDText), withText("GOLD:\n1350.5705725088965\n"),
                         childAtPosition(
                                 allOf(withId(R.id.GOLDRow),
                                         childAtPosition(
@@ -368,10 +294,10 @@ public class ProgressSaved {
                                                 0)),
                                 0),
                         isDisplayed()));
-        textView.check(matches(withText("GOLD:\n0.0\n")));
+        textViewBal.check(matches(withText("GOLD:\n1350.5705725088965\n")));
 
-        ViewInteraction textView2 = onView(
-                allOf(withId(R.id.PENYText), withText("PENY:\n6.679450014816521\n"),
+        ViewInteraction textViewBal2 = onView(
+                allOf(withId(R.id.PENYText), withText("PENY:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.PENYRow),
                                         childAtPosition(
@@ -379,9 +305,9 @@ public class ProgressSaved {
                                                 1)),
                                 0),
                         isDisplayed()));
-        textView2.check(matches(withText("PENY:\n6.679450014816521\n")));
+        textViewBal2.check(matches(withText("PENY:\n0.0\n")));
 
-        ViewInteraction textView3 = onView(
+        ViewInteraction textViewBal3 = onView(
                 allOf(withId(R.id.DOLRText), withText("DOLR:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.DOLRRow),
@@ -390,10 +316,10 @@ public class ProgressSaved {
                                                 2)),
                                 0),
                         isDisplayed()));
-        textView3.check(matches(withText("DOLR:\n0.0\n")));
+        textViewBal3.check(matches(withText("DOLR:\n0.0\n")));
 
-        ViewInteraction textView4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n12.57541532608107\n"),
+        ViewInteraction textViewBal4 = onView(
+                allOf(withId(R.id.SHILText), withText("SHIL:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.SHILRow),
                                         childAtPosition(
@@ -401,10 +327,10 @@ public class ProgressSaved {
                                                 3)),
                                 0),
                         isDisplayed()));
-        textView4.check(matches(withText("SHIL:\n12.57541532608107\n")));
+        textViewBal4.check(matches(withText("SHIL:\n0.0\n")));
 
-        ViewInteraction textView5 = onView(
-                allOf(withId(R.id.QUIDText), withText("QUID:\n0.0\n"),
+        ViewInteraction textViewBal5 = onView(
+                allOf(withId(R.id.QUIDText), withText("QUID:\n25.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.QUIDRow),
                                         childAtPosition(
@@ -412,9 +338,9 @@ public class ProgressSaved {
                                                 4)),
                                 0),
                         isDisplayed()));
-        textView5.check(matches(withText("QUID:\n0.0\n")));
+        textViewBal5.check(matches(withText("QUID:\n25.0\n")));
 
-        // Logout to prepare for the next test
+        // Exit the exchange and log out of the app to preprare for the next test
 
         ViewInteraction appCompatImageButton2 = onView(
                 allOf(withContentDescription("Navigate up"),
