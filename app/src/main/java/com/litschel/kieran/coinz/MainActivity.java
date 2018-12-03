@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
@@ -25,6 +26,7 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
@@ -72,7 +74,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             "8SpoGV9JFlXKlIiuAXkQ22PB0MF3",
             "ROtiCeFTuIZ3xNOhEweThG3htXj1"
     };
-    public boolean tester;
+    public boolean tester = false;
+    private boolean testerInternet = true;
     public String users;
     public String gifts;
     public String users_gifts;
@@ -98,37 +101,44 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private BroadcastReceiver networkChangeReciever = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (activity.isNetworkAvailable()) {
-                if (waitingToListenForGifts) {
-                    waitingToListenForGifts = false;
-                    setUpListenerForGifts();
-                }
-                if (currentFragment != null){
-                    if (currentFragment.getClass()==MapFragment.class && waitingToInitialMapSetup){
-                        System.out.println("FOUND INTERNET CHECKING FOR INITIAL MAP SETUP");
-                        waitingToInitialMapSetup = false;
-                        ((MapFragment) currentFragment).initialMapSetup();
-                    }
-                    if (currentFragment.getClass()==MapFragment.class && waitingToUpdateMap){
-                        System.out.println("FOUND INTERNET CHECKING FOR MAP UPDATE");
-                        waitingToUpdateMap = false;
-                        ((MapFragment) currentFragment).checkForMapUpdate();
-                    }
-                }
-                if (waitingToUpdateCoins){
-                    waitingToUpdateCoins = false;
-                    coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, mapUpdateLock, uid));
-                }
-            } else {
-                settingUpUserGiftListener = false;
-                waitingToListenForGifts = true;
-                if (userGiftListener != null) {
-                    userGiftListener.remove();
-                }
-                userGiftListener = null;
-            }
+            onNetworkChange();
         }
     };
+    private FloatingActionButton flipInternetStateBtn;
+    private FloatingActionButton nextDayBtn;
+    private LocalDate fixedTestDay = LocalDate.of(2018, 12, 1);
+
+    private void onNetworkChange() {
+        if ((!tester && activity.isNetworkAvailable()) || (tester && activity.isNetworkAvailable() && testerInternet)) {
+            if (waitingToListenForGifts) {
+                waitingToListenForGifts = false;
+                setUpListenerForGifts();
+            }
+            if (currentFragment != null) {
+                if (currentFragment.getClass() == MapFragment.class && waitingToInitialMapSetup) {
+                    System.out.println("FOUND INTERNET CHECKING FOR INITIAL MAP SETUP");
+                    waitingToInitialMapSetup = false;
+                    ((MapFragment) currentFragment).initialMapSetup();
+                }
+                if (currentFragment.getClass() == MapFragment.class && waitingToUpdateMap) {
+                    System.out.println("FOUND INTERNET CHECKING FOR MAP UPDATE");
+                    waitingToUpdateMap = false;
+                    ((MapFragment) currentFragment).checkForMapUpdate();
+                }
+            }
+            if (waitingToUpdateCoins) {
+                waitingToUpdateCoins = false;
+                coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, mapUpdateLock, uid));
+            }
+        } else {
+            settingUpUserGiftListener = false;
+            waitingToListenForGifts = true;
+            if (userGiftListener != null) {
+                userGiftListener.remove();
+            }
+            userGiftListener = null;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -157,19 +167,28 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         actionbar.setDisplayHomeAsUpEnabled(true);
         actionbar.setHomeAsUpIndicator(R.drawable.ic_menu);
 
+        nextDayBtn = findViewById(R.id.changeDayButton);
+        nextDayBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                fixedTestDay = fixedTestDay.plusDays(1);
+                if (currentFragment.getClass() == MapFragment.class) {
+                    ((MapFragment) currentFragment).checkForMapUpdate();
+                }
+            }
+        });
+        flipInternetStateBtn = findViewById(R.id.internetButton);
+        flipInternetStateBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                testerInternet = !testerInternet;
+                onNetworkChange();
+            }
+        });
+
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
-        if (Arrays.stream(testers).anyMatch(uid::equals)) {
-            users = "users-test";
-            gifts = "gifts-test";
-            users_gifts = "users_gifts-test";
-            tester = true;
-        } else {
-            users = "users";
-            gifts = "gifts";
-            users_gifts = "users_gifts";
-            tester = false;
-        }
+        setupIfTester();
 
         System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
 
@@ -279,12 +298,16 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         }
     }
 
-    // I found this method here (https://stackoverflow.com/questions/4238921/detect-whether-there-is-an-internet-connection-available-on-android)
     public boolean isNetworkAvailable() {
-        ConnectivityManager connectivityManager
-                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+        if (tester && !testerInternet) {
+            return false;
+        } else {
+            // I found this method here (https://stackoverflow.com/questions/4238921/detect-whether-there-is-an-internet-connection-available-on-android)
+            ConnectivityManager connectivityManager
+                    = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+            return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+        }
     }
 
     @Override
@@ -299,17 +322,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 // When only using one sign in method (in this case email), the uid for each user is unique
                 // so we can use this to uniquely identify them in the database
                 uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-                if (Arrays.stream(testers).anyMatch(uid::equals)) {
-                    users = "users-test";
-                    gifts = "gifts-test";
-                    users_gifts = "users_gifts-test";
-                    tester = true;
-                } else {
-                    users = "users";
-                    gifts = "gifts";
-                    users_gifts = "users_gifts";
-                    tester = false;
-                }
+                setupIfTester();
                 if (uid.equals("ROtiCeFTuIZ3xNOhEweThG3htXj1")) {
                     resetTestDB();
                 } else {
@@ -479,7 +492,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         super.onDestroy();
 
         // This is to ensure that if a test fails and the main activity is destoyed the app is reset to the default state, to prevent inteference with following tests
-        if (tester){
+        if (tester) {
             SharedPreferences.Editor editor = settings.edit();
             editor.clear();
             editor.apply();
@@ -696,13 +709,35 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 });
     }
 
-    public LocalDate localDateNow(){
-        LocalDate now;
-        if (tester){
-            now = LocalDate.of(2018,12,1);
+    public LocalDate localDateNow() {
+        LocalDate day;
+        if (tester) {
+            day = fixedTestDay;
         } else {
-            now = LocalDate.now();
+            day = LocalDate.now();
         }
-        return now;
+        return day;
+    }
+
+    private void setupIfTester() {
+        if (Arrays.stream(testers).anyMatch(uid::equals)) {
+            users = "users-test";
+            gifts = "gifts-test";
+            users_gifts = "users_gifts-test";
+            tester = true;
+            nextDayBtn.setEnabled(true);
+            nextDayBtn.setVisibility(View.VISIBLE);
+            flipInternetStateBtn.setEnabled(true);
+            flipInternetStateBtn.setVisibility(View.VISIBLE);
+        } else {
+            users = "users";
+            gifts = "gifts";
+            users_gifts = "users_gifts";
+            tester = false;
+            nextDayBtn.setEnabled(false);
+            nextDayBtn.setVisibility(View.GONE);
+            flipInternetStateBtn.setEnabled(false);
+            flipInternetStateBtn.setVisibility(View.GONE);
+        }
     }
 }
