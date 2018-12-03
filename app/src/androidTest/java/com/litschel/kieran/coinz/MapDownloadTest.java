@@ -52,16 +52,16 @@ public class MapDownloadTest {
 
     @Test
     public void mapDownloadTest() {
+        // Login
+
         // Added a sleep statement to match the app's execution delay.
         // The recommended way to handle such scenarios is to use Espresso idling resources:
         // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(7000);
+            Thread.sleep(3500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-        // Login
 
         ViewInteraction textInputEditText = onView(
                 allOf(withId(R.id.email),
@@ -70,7 +70,34 @@ public class MapDownloadTest {
                                         withId(R.id.email_layout),
                                         0),
                                 0)));
-        textInputEditText.perform(scrollTo(), replaceText("tester1@coinz.litschel.com"), closeSoftKeyboard());
+        textInputEditText.perform(scrollTo(), click());
+
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction textInputEditText2 = onView(
+                allOf(withId(R.id.email),
+                        childAtPosition(
+                                childAtPosition(
+                                        withId(R.id.email_layout),
+                                        0),
+                                0)));
+        textInputEditText2.perform(scrollTo(), replaceText("tester1@coinz.litschel.com"), closeSoftKeyboard());
+
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         ViewInteraction appCompatButton = onView(
                 allOf(withId(R.id.button_next), withText("Next"),
@@ -85,19 +112,19 @@ public class MapDownloadTest {
         // The recommended way to handle such scenarios is to use Espresso idling resources:
         // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(7000);
+            Thread.sleep(3500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        ViewInteraction textInputEditText2 = onView(
+        ViewInteraction textInputEditText3 = onView(
                 allOf(withId(R.id.password),
                         childAtPosition(
                                 childAtPosition(
                                         withId(R.id.password_layout),
                                         0),
                                 0)));
-        textInputEditText2.perform(scrollTo(), replaceText("test1234"), closeSoftKeyboard());
+        textInputEditText3.perform(scrollTo(), replaceText("test1234"), closeSoftKeyboard());
 
         ViewInteraction appCompatButton2 = onView(
                 allOf(withId(R.id.button_done), withText("Sign in"),
@@ -112,16 +139,7 @@ public class MapDownloadTest {
         // The recommended way to handle such scenarios is to use Espresso idling resources:
         // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
-            Thread.sleep(7000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(7000);
+            Thread.sleep(30000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
