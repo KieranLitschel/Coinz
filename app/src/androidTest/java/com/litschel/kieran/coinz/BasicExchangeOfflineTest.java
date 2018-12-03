@@ -1,6 +1,7 @@
 package com.litschel.kieran.coinz;
 
 
+import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -18,25 +19,28 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static android.support.test.espresso.action.ViewActions.replaceText;
 import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// This is the same test as collecting coins but we run it offline instead.
+// This is the same as the basic exchange test but we run it offline instead
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class OfflineCollectCoinsTest {
+public class BasicExchangeOfflineTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -49,11 +53,11 @@ public class OfflineCollectCoinsTest {
     @Before
     public void beforeTest(){
         DatabaseMethods.resetTestDB();
+        DatabaseMethods.setupTester1WithFiftyQUID();
     }
 
     @Test
-    public void offlineCollectCoinsTest() {
-
+    public void basicExchangeOfflineTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -165,162 +169,7 @@ public class OfflineCollectCoinsTest {
             e.printStackTrace();
         }
 
-        // Click the collect coins button enough times to have collected some of each coin
-
-        ViewInteraction floatingActionButton = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton2 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton2.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton3 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton3.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton4 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton4.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton5 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton5.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton6 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton6.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton7 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton7.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton8 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton8.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton9 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton9.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Go to the balance fragment
+        // Open the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
                 allOf(withContentDescription("Navigate up"),
@@ -343,10 +192,119 @@ public class OfflineCollectCoinsTest {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
-        // Check the balances updated as expected
+        // Open the exchange dialog fragment
+
+        ViewInteraction floatingActionButton = onView(
+                allOf(withId(R.id.exchangeCryptoBtn),
+                        childAtPosition(
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                1),
+                        isDisplayed()));
+        floatingActionButton.perform(click());
+
+        // Exchange 25 QUID for GOLD
+
+        ViewInteraction appCompatSpinner3 = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        appCompatSpinner3.perform(click());
+
+        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
+
+        ViewInteraction appCompatEditText = onView(
+                allOf(withId(R.id.tradeAmountEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatEditText.perform(replaceText("25"), closeSoftKeyboard());
+
+        // CHECK EXCHANGE RATE IS CORRECT
 
         ViewInteraction textView = onView(
-                allOf(withId(R.id.GOLDText), withText("GOLD:\n0.0\n"),
+                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n54.02282290035586"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        textView.check(matches(withText("Exchange rate:\n54.02282290035586")));
+
+        // CHECK EDIT TEXT IS CORRECT
+
+        ViewInteraction editText = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("25"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        editText.check(matches(withText("25")));
+
+        // CHECK OFFERED CRYPTO IS CORRECT
+
+        ViewInteraction textView2 = onView(
+                allOf(withId(R.id.offeredGoldText), withText("Offered gold for crypto:\n1350.5705725088965"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                4),
+                        isDisplayed()));
+        textView2.check(matches(withText("Offered gold for crypto:\n1350.5705725088965")));
+
+        // CHECK REMAINING CRYPTO BANK WILL ACCEPT TODAY IS CORRECT
+
+        ViewInteraction textView3 = onView(
+                allOf(withId(R.id.coinsRemainingToday), withText("Remaining crypto bank will accept today:\n0.0"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                5),
+                        isDisplayed()));
+        textView3.check(matches(withText("Remaining crypto bank will accept today:\n0.0")));
+
+        // CLICK ACCEPT TRADE BUTTON
+
+        ViewInteraction appCompatButton4 = onView(
+                allOf(withId(android.R.id.button1), withText("Accept Trade"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButton4.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Check the balances updated as expected
+
+        ViewInteraction textViewBal = onView(
+                allOf(withId(R.id.GOLDText), withText("GOLD:\n1350.5705725088965\n"),
                         childAtPosition(
                                 allOf(withId(R.id.GOLDRow),
                                         childAtPosition(
@@ -354,10 +312,10 @@ public class OfflineCollectCoinsTest {
                                                 0)),
                                 0),
                         isDisplayed()));
-        textView.check(matches(withText("GOLD:\n0.0\n")));
+        textViewBal.check(matches(withText("GOLD:\n1350.5705725088965\n")));
 
-        ViewInteraction textView2 = onView(
-                allOf(withId(R.id.PENYText), withText("PENY:\n6.679450014816521\n"),
+        ViewInteraction textViewBal2 = onView(
+                allOf(withId(R.id.PENYText), withText("PENY:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.PENYRow),
                                         childAtPosition(
@@ -365,10 +323,10 @@ public class OfflineCollectCoinsTest {
                                                 1)),
                                 0),
                         isDisplayed()));
-        textView2.check(matches(withText("PENY:\n6.679450014816521\n")));
+        textViewBal2.check(matches(withText("PENY:\n0.0\n")));
 
-        ViewInteraction textView3 = onView(
-                allOf(withId(R.id.DOLRText), withText("DOLR:\n6.780261952440848\n"),
+        ViewInteraction textViewBal3 = onView(
+                allOf(withId(R.id.DOLRText), withText("DOLR:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.DOLRRow),
                                         childAtPosition(
@@ -376,10 +334,10 @@ public class OfflineCollectCoinsTest {
                                                 2)),
                                 0),
                         isDisplayed()));
-        textView3.check(matches(withText("DOLR:\n6.780261952440848\n")));
+        textViewBal3.check(matches(withText("DOLR:\n0.0\n")));
 
-        ViewInteraction textView4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n27.139268122070483\n"),
+        ViewInteraction textViewBal4 = onView(
+                allOf(withId(R.id.SHILText), withText("SHIL:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.SHILRow),
                                         childAtPosition(
@@ -387,10 +345,10 @@ public class OfflineCollectCoinsTest {
                                                 3)),
                                 0),
                         isDisplayed()));
-        textView4.check(matches(withText("SHIL:\n27.139268122070483\n")));
+        textViewBal4.check(matches(withText("SHIL:\n0.0\n")));
 
-        ViewInteraction textView5 = onView(
-                allOf(withId(R.id.QUIDText), withText("QUID:\n15.475834848170207\n"),
+        ViewInteraction textViewBal5 = onView(
+                allOf(withId(R.id.QUIDText), withText("QUID:\n25.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.QUIDRow),
                                         childAtPosition(
@@ -398,9 +356,9 @@ public class OfflineCollectCoinsTest {
                                                 4)),
                                 0),
                         isDisplayed()));
-        textView5.check(matches(withText("QUID:\n15.475834848170207\n")));
+        textViewBal5.check(matches(withText("QUID:\n25.0\n")));
 
-        // Logout to prepare for the next test
+        // Exit the exchange and log out of the app to preprare for the next test
 
         ViewInteraction appCompatImageButton2 = onView(
                 allOf(withContentDescription("Navigate up"),
