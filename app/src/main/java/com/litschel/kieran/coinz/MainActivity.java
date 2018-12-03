@@ -475,6 +475,18 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // This is to ensure that if a test fails and the main activity is destoyed the app is reset to the default state, to prevent inteference with following tests
+        if (tester){
+            SharedPreferences.Editor editor = settings.edit();
+            editor.clear();
+            editor.apply();
+        }
+    }
+
+    @Override
     public void onCoinsUpdateWithDeltaComplete(long lockStamp) {
         waitingToUpdateCoins = false;
         runOnUiThread(new Runnable() {
