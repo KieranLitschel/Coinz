@@ -1,7 +1,6 @@
 package com.litschel.kieran.coinz;
 
 
-import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -18,28 +17,25 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static android.support.test.espresso.action.ViewActions.replaceText;
 import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
-import static android.support.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Tests whether the map downloads correctly
+// This is the same test as collecting coins but we run it offline instead.
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class OfflineDayChangeTest {
+public class OfflineCollectCoinsTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -50,7 +46,8 @@ public class OfflineDayChangeTest {
                     "android.permission.ACCESS_FINE_LOCATION");
 
     @Test
-    public void offlineDayChangeTest() {
+    public void offlineCollectCoinsTest() {
+
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -143,9 +140,7 @@ public class OfflineDayChangeTest {
             e.printStackTrace();
         }
 
-        // Turn off the internet
-
-        ViewInteraction floatingActionButton = onView(
+        ViewInteraction floatingActionButtonInternetOff = onView(
                 allOf(withId(R.id.internetButton),
                         childAtPosition(
                                 allOf(withId(R.id.content_frame),
@@ -153,54 +148,174 @@ public class OfflineDayChangeTest {
                                                 withId(R.id.drawer_layout),
                                                 0)),
                                 0),
+                        isDisplayed()));
+        floatingActionButtonInternetOff.perform(click());
+
+        // Click the collect coins button enough times to have collected some of each coin
+
+        // Added a sleep statement to match the app's execution delay.
+        // The recommended way to handle such scenarios is to use Espresso idling resources:
+        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
+        try {
+            Thread.sleep(3500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction floatingActionButton = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
                         isDisplayed()));
         floatingActionButton.perform(click());
 
         try {
-            Thread.sleep(1000);
+            Thread.sleep(4500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        // Change day, triggering action for downloading map when offline
-
         ViewInteraction floatingActionButton2 = onView(
-                allOf(withId(R.id.changeDayButton),
+                allOf(withId(R.id.collectCoinFAB),
                         childAtPosition(
-                                allOf(withId(R.id.content_frame),
+                                allOf(withId(R.id.coordinatorLayout),
                                         childAtPosition(
-                                                withId(R.id.drawer_layout),
+                                                withId(R.id.flContent),
                                                 0)),
-                                1),
+                                2),
                         isDisplayed()));
         floatingActionButton2.perform(click());
 
         try {
-            Thread.sleep(2000);
+            Thread.sleep(4500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        // Turn internet back on, new map should download shortly after
-
         ViewInteraction floatingActionButton3 = onView(
-                allOf(withId(R.id.internetButton),
+                allOf(withId(R.id.collectCoinFAB),
                         childAtPosition(
-                                allOf(withId(R.id.content_frame),
+                                allOf(withId(R.id.coordinatorLayout),
                                         childAtPosition(
-                                                withId(R.id.drawer_layout),
+                                                withId(R.id.flContent),
                                                 0)),
-                                0),
+                                2),
                         isDisplayed()));
         floatingActionButton3.perform(click());
 
         try {
-            Thread.sleep(3000);
+            Thread.sleep(4500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        // Open the balance fragment
+        ViewInteraction floatingActionButton4 = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        floatingActionButton4.perform(click());
+
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction floatingActionButton5 = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        floatingActionButton5.perform(click());
+
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction floatingActionButton6 = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        floatingActionButton6.perform(click());
+
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction floatingActionButton7 = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        floatingActionButton7.perform(click());
+
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction floatingActionButton8 = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        floatingActionButton8.perform(click());
+
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ViewInteraction floatingActionButton9 = onView(
+                allOf(withId(R.id.collectCoinFAB),
+                        childAtPosition(
+                                allOf(withId(R.id.coordinatorLayout),
+                                        childAtPosition(
+                                                withId(R.id.flContent),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        floatingActionButton9.perform(click());
+
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Go to the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
                 allOf(withContentDescription("Navigate up"),
@@ -223,129 +338,64 @@ public class OfflineDayChangeTest {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
-        // Open the exchange dialog fragment
-
-        ViewInteraction floatingActionButton4 = onView(
-                allOf(withId(R.id.exchangeCryptoBtn),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.flContent),
-                                        0),
-                                1),
-                        isDisplayed()));
-        floatingActionButton4.perform(click());
-
-        // Check the displayed exchange rate for PENY is correct
+        // Check the balances updated as expected
 
         ViewInteraction textView = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n26.929289186115238"),
+                allOf(withId(R.id.GOLDText), withText("GOLD:\n0.0\n"),
                         childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
+                                allOf(withId(R.id.GOLDRow),
                                         childAtPosition(
-                                                withId(android.R.id.custom),
+                                                withId(R.id.CoinsTable),
                                                 0)),
-                                2),
+                                0),
                         isDisplayed()));
-        textView.check(matches(withText("Exchange rate:\n26.929289186115238")));
-
-        // Change to an exchange for DOLR and make sure the displayed exchange rate is correct
-
-        ViewInteraction appCompatSpinner = onView(
-                allOf(withId(R.id.cryptoSpinner),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                1),
-                        isDisplayed()));
-        appCompatSpinner.perform(click());
-
-        // I wrote the below interaction myself as the espresso test was not recording selecting
-        // the item on the spinner, I learnt to do it this way from the answer to this question
-        // https://stackoverflow.com/questions/38920141/runtimeexception-in-android-espresso-when-selecting-spinner-in-dialog
-        ViewInteraction appCompatCheckedTextView = onView(withText("DOLR"))
-                .inRoot(isPlatformPopup())
-                .perform(click());
-
+        textView.check(matches(withText("GOLD:\n0.0\n")));
 
         ViewInteraction textView2 = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n32.01053319604642"),
+                allOf(withId(R.id.PENYText), withText("PENY:\n6.679450014816521\n"),
                         childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
+                                allOf(withId(R.id.PENYRow),
                                         childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                2),
+                                                withId(R.id.CoinsTable),
+                                                1)),
+                                0),
                         isDisplayed()));
-        textView2.check(matches(withText("Exchange rate:\n32.01053319604642")));
-
-        // Change to an exchange for SHIL and make sure the displayed exchange rate is correct
-
-        ViewInteraction appCompatSpinner2 = onView(
-                allOf(withId(R.id.cryptoSpinner),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                1),
-                        isDisplayed()));
-        appCompatSpinner2.perform(click());
-
-        ViewInteraction appCompatCheckedTextView2 = onView(withText("SHIL"))
-                .inRoot(isPlatformPopup())
-                .perform(click());
+        textView2.check(matches(withText("PENY:\n6.679450014816521\n")));
 
         ViewInteraction textView3 = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n17.55867199874981"),
+                allOf(withId(R.id.DOLRText), withText("DOLR:\n6.780261952440848\n"),
                         childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
+                                allOf(withId(R.id.DOLRRow),
                                         childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                2),
+                                                withId(R.id.CoinsTable),
+                                                2)),
+                                0),
                         isDisplayed()));
-        textView3.check(matches(withText("Exchange rate:\n17.55867199874981")));
-
-        // Change to an exchange for QUID and make sure the displayed exchange rate is correct
-
-        ViewInteraction appCompatSpinner3 = onView(
-                allOf(withId(R.id.cryptoSpinner),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                1),
-                        isDisplayed()));
-        appCompatSpinner3.perform(click());
-
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
-                .inRoot(isPlatformPopup())
-                .perform(click());
+        textView3.check(matches(withText("DOLR:\n6.780261952440848\n")));
 
         ViewInteraction textView4 = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n32.167432074332574"),
+                allOf(withId(R.id.SHILText), withText("SHIL:\n27.139268122070483\n"),
                         childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
+                                allOf(withId(R.id.SHILRow),
                                         childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                2),
+                                                withId(R.id.CoinsTable),
+                                                3)),
+                                0),
                         isDisplayed()));
-        textView4.check(matches(withText("Exchange rate:\n32.167432074332574")));
+        textView4.check(matches(withText("SHIL:\n27.139268122070483\n")));
 
-        // Exit the exchange and log out of the app to preprare for the next test
-
-        ViewInteraction appCompatButton3 = onView(
-                allOf(withId(android.R.id.button2), withText("Cancel"),
+        ViewInteraction textView5 = onView(
+                allOf(withId(R.id.QUIDText), withText("QUID:\n15.475834848170207\n"),
                         childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                2)));
-        appCompatButton3.perform(scrollTo(), click());
+                                allOf(withId(R.id.QUIDRow),
+                                        childAtPosition(
+                                                withId(R.id.CoinsTable),
+                                                4)),
+                                0),
+                        isDisplayed()));
+        textView5.check(matches(withText("QUID:\n15.475834848170207\n")));
+
+        // Logout to prepare for the next test
 
         ViewInteraction appCompatImageButton2 = onView(
                 allOf(withContentDescription("Navigate up"),
