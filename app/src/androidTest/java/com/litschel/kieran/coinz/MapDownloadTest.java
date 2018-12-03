@@ -187,6 +187,9 @@ public class MapDownloadTest {
                         isDisplayed()));
         appCompatSpinner.perform(click());
 
+        // I wrote the below interaction myself as the espresso test was not recording selecting
+        // the item on the spinner, I learnt to do it this way from the answer to this question
+        // https://stackoverflow.com/questions/38920141/runtimeexception-in-android-espresso-when-selecting-spinner-in-dialog
         ViewInteraction appCompatCheckedTextView = onView(withText("DOLR"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
