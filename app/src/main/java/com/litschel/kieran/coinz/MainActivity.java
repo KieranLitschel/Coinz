@@ -186,9 +186,18 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             }
         });
 
+        if (tester) {
+            // This is to ensure that when we start each unit test we are certain the settings are clear,
+            // they are cleared when the user logs out at the end of each test, but sometimes this doesn't
+            // happen as a result of crashes or test failures, so this is necessary to ensures tests are
+            // repeatable under any circumstance.
+            SharedPreferences.Editor editor = settings.edit();
+            editor.clear();
+            editor.apply();
+        }
+
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
-        setupIfTester();
 
         System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
 
@@ -476,18 +485,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (userGiftListener != null) {
             userGiftListener.remove();
             userGiftListener = null;
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        // This is to ensure that if a test fails and the main activity is destoyed the app is reset to the default state, to prevent inteference with following tests
-        if (tester) {
-            SharedPreferences.Editor editor = settings.edit();
-            editor.clear();
-            editor.apply();
         }
     }
 
