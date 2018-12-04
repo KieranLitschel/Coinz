@@ -40,7 +40,7 @@ import static org.hamcrest.Matchers.is;
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class BasicChangeUsernameTest {
+public class BasicCreateUsernameTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -56,7 +56,7 @@ public class BasicChangeUsernameTest {
     }
 
     @Test
-    public void basicExchangeTest() {
+    public void basicCreateUsernameTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
