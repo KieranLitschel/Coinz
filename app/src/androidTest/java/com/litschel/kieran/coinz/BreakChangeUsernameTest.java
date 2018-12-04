@@ -36,14 +36,13 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Tests creating a username under expected use
-
-// Also note we do not need to test basic functionality of changing username as the create username
-// and change username dialogs are the same with just a couple cosmetic tweaks
+// Tests trying to break the change username dialog, we test this as opposed to create username
+// as the potential errors are the same, except the user can try and change their username to
+// the same thing
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class BasicCreateUsernameTest {
+public class BreakChangeUsernameTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -56,6 +55,8 @@ public class BasicCreateUsernameTest {
     @Before
     public void beforeTest() {
         DatabaseMethods.resetTestDB();
+        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
+        DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{});
     }
 
     @Test
@@ -175,8 +176,7 @@ public class BasicCreateUsernameTest {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
-        // Open the gift dialog fragment, which as there is no username will open the create
-        // username dialog
+        // Open the gift dialog fragment
 
         ViewInteraction floatingActionButton = onView(
                 allOf(withId(R.id.giftCryptoBtn),
@@ -188,10 +188,16 @@ public class BasicCreateUsernameTest {
                         isDisplayed()));
         floatingActionButton.perform(click());
 
-        // Change username
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        ViewInteraction appCompatEditText8 = onView(
-                allOf(withId(R.id.usernameEditText),
+        // Open the change username dialog
+
+        ViewInteraction appCompatButton3 = onView(
+                allOf(withId(R.id.changeUsernameBtn), withText("Change username"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -199,39 +205,12 @@ public class BasicCreateUsernameTest {
                                                 0)),
                                 2),
                         isDisplayed()));
-        appCompatEditText8.perform(replaceText("bob"), closeSoftKeyboard());
+        appCompatButton3.perform(click());
 
-        ViewInteraction appCompatButton5 = onView(
-                allOf(withId(android.R.id.button1), withText("Create username"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                3)));
-        appCompatButton5.perform(scrollTo(), click());
+        // Change the username to jim
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Open the gift dialog fragment
-
-        ViewInteraction floatingActionButton2 = onView(
-                allOf(withId(R.id.giftCryptoBtn),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.flContent),
-                                        0),
-                                2),
-                        isDisplayed()));
-        floatingActionButton2.perform(click());
-
-        // Check the username is updated correctly
-
-        ViewInteraction textView6 = onView(
-                allOf(withId(R.id.usernameText), withText("Your username is:\nbob"),
+        ViewInteraction appCompatEditText26 = onView(
+                allOf(withId(R.id.usernameEditText),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -239,9 +218,82 @@ public class BasicCreateUsernameTest {
                                                 0)),
                                 1),
                         isDisplayed()));
-        textView6.check(matches(withText("Your username is:\nbob")));
+        appCompatEditText26.perform(replaceText("bob"), closeSoftKeyboard());
 
-        // Cancel sending gift
+        // CLICK CHANGE USERNAME BUTTON
+
+        ViewInteraction appCompatButtonChange1 = onView(
+                allOf(withId(android.R.id.button1), withText("Change username"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButtonChange1.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Check username same as old one warning is displayed
+
+        ViewInteraction textView9 = onView(
+                allOf(withId(R.id.usernameExistsText), withText("The new username is the same as your old one, if you'd like to change it please enter a new one."),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        textView9.check(matches(withText("The new username is the same as your old one, if you'd like to change it please enter a new one.")));
+
+        // Change username to bob, an existing username in the database
+
+        ViewInteraction appCompatEditTextChang2 = onView(
+                allOf(withId(R.id.usernameEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        appCompatEditText26.perform(replaceText("jim"), closeSoftKeyboard());
+
+        // CLICK CHANGE USERNAME BUTTON
+
+        ViewInteraction appCompatButtonChange2 = onView(
+                allOf(withId(android.R.id.button1), withText("Change username"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButtonChange2.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Check username same as old one warning is displayed
+
+        ViewInteraction textView9Change2 = onView(
+                allOf(withId(R.id.usernameExistsText), withText("That username is already in use, please try another."),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                2),
+                        isDisplayed()));
+        textView9Change2.check(matches(withText("That username is already in use, please try another.")));
+
+        // Click cancel button
 
         ViewInteraction appCompatButton11 = onView(
                 allOf(withId(android.R.id.button2), withText("Cancel"),
@@ -251,6 +303,12 @@ public class BasicCreateUsernameTest {
                                         0),
                                 2)));
         appCompatButton11.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Log out of the app to preprare for the next test
 

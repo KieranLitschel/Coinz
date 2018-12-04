@@ -82,7 +82,7 @@ class DatabaseMethods {
         }
     }
 
-    static void setupUser(String uid, String username, String[][] currenciesNdAmounts){
+    static void setupUser(String uid, String username, String[][] currenciesNdAmounts) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
         WriteBatch batch = db.batch();
@@ -92,14 +92,14 @@ class DatabaseMethods {
         user_defaults.put("username", username);
         for (String aCurrency : currencies) {
             boolean set = false;
-            for (String[] currencyNdAmount : currenciesNdAmounts){
-                if (aCurrency.equals(currencyNdAmount[0])){
+            for (String[] currencyNdAmount : currenciesNdAmounts) {
+                if (aCurrency.equals(currencyNdAmount[0])) {
                     user_defaults.put(aCurrency, Double.parseDouble(currencyNdAmount[1]));
                     set = true;
                     break;
                 }
             }
-            if (!set){
+            if (!set) {
                 user_defaults.put(aCurrency, 0.0);
             }
         }
@@ -107,6 +107,11 @@ class DatabaseMethods {
         user_defaults.put("map", "");
         user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());
         batch.set(userDocRef, user_defaults);
+
+        if (!username.equals("")) {
+            DocumentReference usernamesDocRef = db.collection("users-test").document("usernames");
+            batch.update(usernamesDocRef, uid, username);
+        }
 
         // We store gifts in a separate document to make listening for changes simpler
         DocumentReference userGiftDocRef = db.collection("users_gifts-test").document(uid);
