@@ -36,11 +36,11 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// This is the same as the basic exchange test but we run it offline instead
+// This test tries to break the exchange activity by trading more coin than we have
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class BasicExchangeOfflineTest {
+public class BreakExchangeTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -51,13 +51,15 @@ public class BasicExchangeOfflineTest {
                     "android.permission.ACCESS_FINE_LOCATION");
 
     @Before
-    public void beforeTest(){
+    public void beforeTest() {
         DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupTester1WithCurrency(new String[][]{new String[]{"QUID","50.0"}});
+        DatabaseMethods.setupTester1WithCurrency(new String[][]{
+                new String[]{"QUID", "25.1"},
+                new String[]{"DOLR", "12.5"}});
     }
 
     @Test
-    public void basicExchangeOfflineTest() {
+    public void breakExchangeTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -150,25 +152,6 @@ public class BasicExchangeOfflineTest {
             e.printStackTrace();
         }
 
-        // Put the app into offline mode
-
-        ViewInteraction floatingActionButtonInternetOff = onView(
-                allOf(withId(R.id.internetButton),
-                        childAtPosition(
-                                allOf(withId(R.id.content_frame),
-                                        childAtPosition(
-                                                withId(R.id.drawer_layout),
-                                                0)),
-                                0),
-                        isDisplayed()));
-        floatingActionButtonInternetOff.perform(click());
-
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
         // Open the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
@@ -204,7 +187,7 @@ public class BasicExchangeOfflineTest {
                         isDisplayed()));
         floatingActionButton.perform(click());
 
-        // Exchange 25 QUID for GOLD
+        // Input want to exchange 25 DOLR
 
         ViewInteraction appCompatSpinner3 = onView(
                 allOf(withId(R.id.cryptoSpinner),
@@ -217,7 +200,7 @@ public class BasicExchangeOfflineTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
+        ViewInteraction appCompatCheckedTextView3 = onView(withText("DOLR"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -232,23 +215,10 @@ public class BasicExchangeOfflineTest {
                         isDisplayed()));
         appCompatEditText.perform(replaceText("25"), closeSoftKeyboard());
 
-        // CHECK EXCHANGE RATE IS CORRECT
-
-        ViewInteraction textView = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n54.02282290035586"),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        textView.check(matches(withText("Exchange rate:\n54.02282290035586")));
-
-        // CHECK EDIT TEXT IS CORRECT
+        // Check trade amount corrected to 12.5 DOLR (amount in balance)
 
         ViewInteraction editText = onView(
-                allOf(withId(R.id.tradeAmountEditText), withText("25"),
+                allOf(withId(R.id.tradeAmountEditText), withText("12.5"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -256,33 +226,91 @@ public class BasicExchangeOfflineTest {
                                                 0)),
                                 3),
                         isDisplayed()));
-        editText.check(matches(withText("25")));
+        editText.check(matches(withText("12.5")));
 
-        // CHECK OFFERED CRYPTO IS CORRECT
+        // Switch to SHIL
 
-        ViewInteraction textView2 = onView(
-                allOf(withId(R.id.offeredGoldText), withText("Offered gold for crypto:\n1350.5705725088965"),
+        ViewInteraction appCompatSpinnerShil = onView(
+                allOf(withId(R.id.cryptoSpinner),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
                                                 withId(android.R.id.custom),
                                                 0)),
-                                4),
+                                1),
                         isDisplayed()));
-        textView2.check(matches(withText("Offered gold for crypto:\n1350.5705725088965")));
+        appCompatSpinnerShil.perform(click());
 
-        // CHECK REMAINING CRYPTO BANK WILL ACCEPT TODAY IS CORRECT
+        ViewInteraction appCompatCheckedTextViewShil = onView(withText("SHIL"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
 
-        ViewInteraction textView3 = onView(
-                allOf(withId(R.id.coinsRemainingToday), withText("Remaining crypto bank will accept today:\n0.0"),
+        // Check trade amount corrected to 0 SHIL (amount in balance)
+
+        ViewInteraction editTextShil = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("0.0"),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
                                                 withId(android.R.id.custom),
                                                 0)),
-                                5),
+                                3),
                         isDisplayed()));
-        textView3.check(matches(withText("Remaining crypto bank will accept today:\n0.0")));
+        editTextShil.check(matches(withText("0.0")));
+
+        // Set trade amount to exchange 50 QUID
+
+        ViewInteraction appCompatSpinnerQuid = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        appCompatSpinnerQuid.perform(click());
+
+        ViewInteraction appCompatCheckedTextViewQuid = onView(withText("QUID"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
+
+        ViewInteraction appCompatEditText2 = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("0.0"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatEditText2.perform(replaceText("50.0"));
+
+        // Check corrected to 25 QUID
+
+        ViewInteraction editTextQuid = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("25.0"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        editTextQuid.check(matches(withText("25.0")));
+
+        // Set to 12.5 QUID
+
+        ViewInteraction appCompatEditText2Quid2 = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("25.0"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatEditText2Quid2.perform(replaceText("12.5"));
 
         // CLICK ACCEPT TRADE BUTTON
 
@@ -301,62 +329,145 @@ public class BasicExchangeOfflineTest {
             e.printStackTrace();
         }
 
-        // Check the balances updated as expected
+        // Reopen the exchange
 
-        ViewInteraction textViewBal = onView(
-                allOf(withId(R.id.GOLDText), withText("GOLD:\n1350.5705725088965\n"),
+        ViewInteraction floatingActionButtonExchange2 = onView(
+                allOf(withId(R.id.exchangeCryptoBtn),
                         childAtPosition(
-                                allOf(withId(R.id.GOLDRow),
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                1),
+                        isDisplayed()));
+        floatingActionButtonExchange2.perform(click());
+
+        // Input want to exchange 12.6 QUID
+
+        ViewInteraction appCompatSpinner3Quid2 = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
-                                                withId(R.id.CoinsTable),
+                                                withId(android.R.id.custom),
                                                 0)),
-                                0),
+                                1),
                         isDisplayed()));
-        textViewBal.check(matches(withText("GOLD:\n1350.5705725088965\n")));
+        appCompatSpinner3Quid2.perform(click());
 
-        ViewInteraction textViewBal2 = onView(
-                allOf(withId(R.id.PENYText), withText("PENY:\n0.0\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.PENYRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                1)),
-                                0),
-                        isDisplayed()));
-        textViewBal2.check(matches(withText("PENY:\n0.0\n")));
+        ViewInteraction appCompatCheckedTextView3Quid2 = onView(withText("QUID"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
 
-        ViewInteraction textViewBal3 = onView(
-                allOf(withId(R.id.DOLRText), withText("DOLR:\n0.0\n"),
+        ViewInteraction appCompatEditTextQuid2 = onView(
+                allOf(withId(R.id.tradeAmountEditText),
                         childAtPosition(
-                                allOf(withId(R.id.DOLRRow),
+                                allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                2)),
-                                0),
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
                         isDisplayed()));
-        textViewBal3.check(matches(withText("DOLR:\n0.0\n")));
+        appCompatEditTextQuid2.perform(replaceText("12.6"), closeSoftKeyboard());
 
-        ViewInteraction textViewBal4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n0.0\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.SHILRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                3)),
-                                0),
-                        isDisplayed()));
-        textViewBal4.check(matches(withText("SHIL:\n0.0\n")));
+        // Check corrected to 12.5 QUID
 
-        ViewInteraction textViewBal5 = onView(
-                allOf(withId(R.id.QUIDText), withText("QUID:\n25.0\n"),
+        ViewInteraction editTextQuid2 = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("12.5"),
                         childAtPosition(
-                                allOf(withId(R.id.QUIDRow),
+                                allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                4)),
-                                0),
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
                         isDisplayed()));
-        textViewBal5.check(matches(withText("QUID:\n25.0\n")));
+        editTextQuid2.check(matches(withText("12.5")));
+
+        // CLICK ACCEPT TRADE BUTTON
+
+        ViewInteraction appCompatButton4Quid2 = onView(
+                allOf(withId(android.R.id.button1), withText("Accept Trade"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButton4Quid2.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Reopen the exchange
+
+        ViewInteraction floatingActionButtonExchange3 = onView(
+                allOf(withId(R.id.exchangeCryptoBtn),
+                        childAtPosition(
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                1),
+                        isDisplayed()));
+        floatingActionButtonExchange3.perform(click());
+
+        // Input want to exchange 12.5 DOLR
+
+        ViewInteraction appCompatSpinner3Dolr = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        appCompatSpinner3Dolr.perform(click());
+
+        ViewInteraction appCompatCheckedTextView3Dolr = onView(withText("DOLR"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
+
+        ViewInteraction appCompatEditTextDolr = onView(
+                allOf(withId(R.id.tradeAmountEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatEditTextDolr.perform(replaceText("12.5"), closeSoftKeyboard());
+
+        // Check corrected to 0.0 DOLR
+
+        ViewInteraction editTextDolr = onView(
+                allOf(withId(R.id.tradeAmountEditText), withText("0.0"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        editTextDolr.check(matches(withText("0.0")));
+
+        // CLICK CANCEL BUTTON
+
+        ViewInteraction appCompatButton11 = onView(
+                allOf(withId(android.R.id.button2), withText("Cancel"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                2)));
+        appCompatButton11.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(2500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Log out of the app to preprare for the next test
 

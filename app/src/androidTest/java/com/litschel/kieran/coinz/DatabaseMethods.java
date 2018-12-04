@@ -82,19 +82,28 @@ class DatabaseMethods {
         }
     }
 
-    static void setupTester1WithFiftyQUID(){
+    static void setupTester1WithCurrency(String[][] currenciesNdAmounts){
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL"};
+        final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
         String uid = "ROtiCeFTuIZ3xNOhEweThG3htXj1";
         WriteBatch batch = db.batch();
 
         DocumentReference userDocRef = db.collection("users-test").document(uid);
         Map<String, Object> user_defaults = new HashMap<>();
         user_defaults.put("username", "");
-        for (String currency : currencies) {
-            user_defaults.put(currency, 0.0);
+        for (String aCurrency : currencies) {
+            boolean set = false;
+            for (String[] currencyNdAmount : currenciesNdAmounts){
+                if (aCurrency.equals(currencyNdAmount[0])){
+                    user_defaults.put(aCurrency, Double.parseDouble(currencyNdAmount[1]));
+                    set = true;
+                    break;
+                }
+            }
+            if (!set){
+                user_defaults.put(aCurrency, 0.0);
+            }
         }
-        user_defaults.put("QUID", 50.0);
         user_defaults.put("coinsRemainingToday", 0.0);
         user_defaults.put("map", "");
         user_defaults.put("lastDownloadDate", LocalDate.MIN.toString());

@@ -36,8 +36,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Test whether the map downloaded correctly by looking at the exchange rates and making sure they
-// match those for the fixed date for testers (1st December 2018)
+// Tests the coin exchange under expected use
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
@@ -54,7 +53,7 @@ public class BasicExchangeTest {
     @Before
     public void beforeTest(){
         DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupTester1WithFiftyQUID();
+        DatabaseMethods.setupTester1WithCurrency(new String[][]{new String[]{"QUID","50.0"}});
     }
 
     @Test
@@ -340,7 +339,7 @@ public class BasicExchangeTest {
                         isDisplayed()));
         textViewBal5.check(matches(withText("QUID:\n25.0\n")));
 
-        // Exit the exchange and log out of the app to preprare for the next test
+        // Log out of the app to preprare for the next test
 
         ViewInteraction appCompatImageButton2 = onView(
                 allOf(withContentDescription("Navigate up"),
