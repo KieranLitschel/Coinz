@@ -34,9 +34,9 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
 // In this test we test whether the progress is being saved in the cloud. We test this by changing
-// our balance by collecting coins and then exchanging them, and then logging out (which clears all
-// local values), and then logging back in (which redownloads the values from the cloud). Finally
-// we check whether the balances are as expected to finish the test.
+// our balance by collecting coins, exchanging them, sending them as gifts, and then logging out
+// (which clears all local values), and then logging back in (which redownloads the values from the
+// cloud). Finally we check whether the balances are as expected to finish the test.
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
@@ -53,6 +53,8 @@ public class ProgressSavedTest {
     @Before
     public void beforeTest(){
         DatabaseMethods.resetTestDB();
+        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
+        DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{});
     }
 
     @Test
@@ -300,6 +302,78 @@ public class ProgressSavedTest {
             e.printStackTrace();
         }
 
+        // Open the gift dialog fragment
+
+        ViewInteraction floatingActionButtonGift = onView(
+                allOf(withId(R.id.giftCryptoBtn),
+                        childAtPosition(
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                2),
+                        isDisplayed()));
+        floatingActionButtonGift.perform(click());
+
+        // Select SHIL in spinner
+
+        ViewInteraction appCompatSpinner3Gift = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatSpinner3Gift.perform(click());
+
+        ViewInteraction appCompatCheckedTextView3Gift = onView(withText("SHIL"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
+
+        // Input gift amount as 12.57541532608107
+
+        ViewInteraction appCompatEditText12 = onView(
+                allOf(withId(R.id.giftAmountEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                4),
+                        isDisplayed()));
+        appCompatEditText12.perform(replaceText("12.57541532608107"));
+
+        // Input recipient as jim
+
+        ViewInteraction appCompatEditText21 = onView(
+                allOf(withId(R.id.recipientEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                5),
+                        isDisplayed()));
+        appCompatEditText21.perform(replaceText("jim"), closeSoftKeyboard());
+
+        // Send gift
+
+        ViewInteraction appCompatButton7 = onView(
+                allOf(withId(android.R.id.button1), withText("Send gift"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButton7.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // Logout
 
         ViewInteraction appCompatImageButtonLogout = onView(
@@ -406,6 +480,12 @@ public class ProgressSavedTest {
                                 4)));
         appCompatButtonLogin2.perform(scrollTo(), click());
 
+        try {
+            Thread.sleep(7500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // Go to the balance fragment
 
         ViewInteraction appCompatImageButtonBal2 = onView(
@@ -478,7 +558,7 @@ public class ProgressSavedTest {
         textView3.check(matches(withText("DOLR:\n0.0\n")));
 
         ViewInteraction textView4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n12.57541532608107\n"),
+                allOf(withId(R.id.SHILText), withText("SHIL:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.SHILRow),
                                         childAtPosition(
@@ -486,7 +566,7 @@ public class ProgressSavedTest {
                                                 3)),
                                 0),
                         isDisplayed()));
-        textView4.check(matches(withText("SHIL:\n12.57541532608107\n")));
+        textView4.check(matches(withText("SHIL:\n0.0\n")));
 
         ViewInteraction textView5 = onView(
                 allOf(withId(R.id.QUIDText), withText("QUID:\n0.0\n"),

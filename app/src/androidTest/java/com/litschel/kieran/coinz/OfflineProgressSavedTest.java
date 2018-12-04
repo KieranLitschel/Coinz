@@ -33,8 +33,9 @@ import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
-// This is the same as the ProgressSavedTest, except we turn off the internet when collecting coins
-// and using the exchange, then turn it back on after we've finished before the first logout
+// This is the same as the ProgressSavedTest, except we turn off the internet for collection coin and
+// exchanging it, and we don't gift coin (as this is disabled offline), then turn it back on after
+// we've finished before the first logout
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
