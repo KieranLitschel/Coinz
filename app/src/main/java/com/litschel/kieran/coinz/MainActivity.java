@@ -186,6 +186,10 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             }
         });
 
+        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
+        uid = settings.getString("uid", "");
+        setupIfTester();
+
         if (tester) {
             // This is to ensure that when we start each unit test we are certain the settings are clear,
             // they are cleared when the user logs out at the end of each test, but sometimes this doesn't
@@ -194,10 +198,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             SharedPreferences.Editor editor = settings.edit();
             editor.clear();
             editor.apply();
+            uid = "";
         }
-
-        settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
-        uid = settings.getString("uid", "");
 
         System.out.println("GOT UID OF " + uid + " FROM LOCAL STORAGE");
 

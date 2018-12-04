@@ -24,6 +24,7 @@ import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard
 import static android.support.test.espresso.action.ViewActions.replaceText;
 import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
@@ -140,7 +141,7 @@ public class ProgressSavedTest {
                                 4)));
         appCompatButton2.perform(scrollTo(), click());
 
-        // Click the collect coins button enough times to have collected some of each coin
+        // Click the collect coins button 4 times
 
         // Added a sleep statement to match the app's execution delay.
         // The recommended way to handle such scenarios is to use Espresso idling resources:
@@ -215,6 +216,86 @@ public class ProgressSavedTest {
 
         try {
             Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Open the balance fragment
+
+        ViewInteraction appCompatImageButton = onView(
+                allOf(withContentDescription("Navigate up"),
+                        childAtPosition(
+                                allOf(withId(R.id.toolbar),
+                                        childAtPosition(
+                                                withId(R.id.content_frame),
+                                                2)),
+                                1),
+                        isDisplayed()));
+        appCompatImageButton.perform(click());
+
+        ViewInteraction navigationMenuItemView = onView(
+                allOf(childAtPosition(
+                        allOf(withId(R.id.design_navigation_view),
+                                childAtPosition(
+                                        withId(R.id.nav_view),
+                                        0)),
+                        2),
+                        isDisplayed()));
+        navigationMenuItemView.perform(click());
+
+        // Open the exchange dialog fragment
+
+        ViewInteraction floatingActionButtonExchange = onView(
+                allOf(withId(R.id.exchangeCryptoBtn),
+                        childAtPosition(
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                1),
+                        isDisplayed()));
+        floatingActionButtonExchange.perform(click());
+
+        // Exchange 6.679450014816521 PENY for GOLD
+
+        ViewInteraction appCompatSpinner3 = onView(
+                allOf(withId(R.id.cryptoSpinner),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                1),
+                        isDisplayed()));
+        appCompatSpinner3.perform(click());
+
+        ViewInteraction appCompatCheckedTextView3 = onView(withText("PENY"))
+                .inRoot(isPlatformPopup())
+                .perform(click());
+
+        ViewInteraction appCompatEditText = onView(
+                allOf(withId(R.id.tradeAmountEditText),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
+                                        childAtPosition(
+                                                withId(android.R.id.custom),
+                                                0)),
+                                3),
+                        isDisplayed()));
+        appCompatEditText.perform(replaceText("6.679450014816521"), closeSoftKeyboard());
+
+        // CLICK ACCEPT TRADE BUTTON
+
+        ViewInteraction appCompatButton4 = onView(
+                allOf(withId(android.R.id.button1), withText("Accept Trade"),
+                        childAtPosition(
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                3)));
+        appCompatButton4.perform(scrollTo(), click());
+
+        try {
+            Thread.sleep(5000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -327,7 +408,7 @@ public class ProgressSavedTest {
 
         // Go to the balance fragment
 
-        ViewInteraction appCompatImageButton = onView(
+        ViewInteraction appCompatImageButtonBal2 = onView(
                 allOf(withContentDescription("Navigate up"),
                         childAtPosition(
                                 allOf(withId(R.id.toolbar),
@@ -336,9 +417,9 @@ public class ProgressSavedTest {
                                                 2)),
                                 1),
                         isDisplayed()));
-        appCompatImageButton.perform(click());
+        appCompatImageButtonBal2.perform(click());
 
-        ViewInteraction navigationMenuItemView = onView(
+        ViewInteraction navigationMenuItemViewBal2 = onView(
                 allOf(childAtPosition(
                         allOf(withId(R.id.design_navigation_view),
                                 childAtPosition(
@@ -346,7 +427,7 @@ public class ProgressSavedTest {
                                         0)),
                         2),
                         isDisplayed()));
-        navigationMenuItemView.perform(click());
+        navigationMenuItemViewBal2.perform(click());
 
         // Added a sleep statement to match the app's execution delay.
         // The recommended way to handle such scenarios is to use Espresso idling resources:
@@ -359,8 +440,12 @@ public class ProgressSavedTest {
 
         // Check the balances updated as expected
 
+        // Note that the value we expect isn't exactly the value we'd get if we calculated the result
+        // in a calculator, this is because the true value is larger than a double, so the value is
+        // rounded.
+
         ViewInteraction textView = onView(
-                allOf(withId(R.id.GOLDText), withText("GOLD:\n0.0\n"),
+                allOf(withId(R.id.GOLDText), withText("GOLD:\n209.86752225905985\n"),
                         childAtPosition(
                                 allOf(withId(R.id.GOLDRow),
                                         childAtPosition(
@@ -368,10 +453,10 @@ public class ProgressSavedTest {
                                                 0)),
                                 0),
                         isDisplayed()));
-        textView.check(matches(withText("GOLD:\n0.0\n")));
+        textView.check(matches(withText("GOLD:\n209.86752225905985\n")));
 
         ViewInteraction textView2 = onView(
-                allOf(withId(R.id.PENYText), withText("PENY:\n6.679450014816521\n"),
+                allOf(withId(R.id.PENYText), withText("PENY:\n0.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.PENYRow),
                                         childAtPosition(
@@ -379,7 +464,7 @@ public class ProgressSavedTest {
                                                 1)),
                                 0),
                         isDisplayed()));
-        textView2.check(matches(withText("PENY:\n6.679450014816521\n")));
+        textView2.check(matches(withText("PENY:\n0.0\n")));
 
         ViewInteraction textView3 = onView(
                 allOf(withId(R.id.DOLRText), withText("DOLR:\n0.0\n"),
