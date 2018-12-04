@@ -1,7 +1,7 @@
 package com.litschel.kieran.coinz;
 
 
-import android.support.test.espresso.DataInteraction;
+import android.support.annotation.NonNull;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -11,6 +11,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -19,7 +25,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static android.support.test.espresso.Espresso.onData;
+import java.util.ArrayList;
+
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
@@ -33,8 +40,9 @@ import static android.support.test.espresso.matcher.ViewMatchers.withContentDesc
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 // Tests creating a username under expected use
 
@@ -44,6 +52,8 @@ import static org.hamcrest.Matchers.is;
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class BasicSendGiftTest {
+
+    private String jimsGiftId = "";
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -262,6 +272,95 @@ public class BasicSendGiftTest {
                                 0),
                         isDisplayed()));
         textView4.check(matches(withText("SHIL:\n50.0\n")));
+
+        // Check the trade was submitted correctly to the database
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        DocumentReference jimsDocument = db.collection("users-test").document("8SpoGV9JFlXKlIiuAXkQ22PB0MF3");
+        DocumentReference jimsGiftDocument = db.collection("users_gifts-test").document("8SpoGV9JFlXKlIiuAXkQ22PB0MF3");
+
+        jimsDocument.get()
+                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                        if (task.isSuccessful() && task.getResult().exists()){
+                            DocumentSnapshot document = task.getResult();
+                            Double shil = document.getDouble("SHIL");
+                            if (shil != null){
+                                assertEquals(shil,50.0,0.0);
+                            } else {
+                                fail("COULD NOT FIND SHIL IN JIMS DOCUMENT");
+                            }
+                        } else {
+                            fail("FAILED TO GET JIMS DOCUMENT");
+                        }
+                    }
+                });
+
+        jimsGiftDocument.get()
+                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                        if (task.isSuccessful() && task.getResult().exists()){
+                            DocumentSnapshot document = task.getResult();
+                            Object giftsObj = document.get("gifts");
+                            if (giftsObj != null){
+                                try {
+                                    // We suppress warning here as impossible to fail, but IDE gives a warning falsely about unchecked cast
+                                    @SuppressWarnings("unchecked")
+                                    ArrayList<String> gifts = (ArrayList<String>) giftsObj;
+                                    if (!gifts.isEmpty()){
+                                        jimsGiftId = gifts.get(0);
+                                    } else {
+                                        fail("NO GIFTS FOUND IN ARRAY LIST");
+                                    }
+                                } catch (ClassCastException e){
+                                    fail("GIFTS IS NOT AN ARRAY LIST");
+                                }
+                            } else {
+                                fail("COULD NOT GET GIFTS FROM USERS-GIFTS DOC FOR JIM");
+                            }
+                        } else {
+                            fail("FAILED TO FIND JIMS GIFTS DOCUMENT");
+                        }
+                    }
+                });
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        DocumentReference jimsGift = db.collection("gifts-test").document(jimsGiftId);
+        jimsGift.get()
+                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful() && task.getResult().exists()){
+                    DocumentSnapshot document = task.getResult();
+                    Double amount = document.getDouble("amount");
+                    String currency = document.getString("currency");
+                    String senderUid = document.getString("senderUid");
+                    if (amount != null & currency != null & senderUid != null){
+                        assertEquals(amount,50.0,0.0);
+                        assertEquals(currency,"SHIL");
+                        assertEquals(senderUid,"ROtiCeFTuIZ3xNOhEweThG3htXj1");
+                    } else {
+                        fail("AT LEAST ONE OF THE GIFTS FIELDS DOES NOT EXIST");
+                    }
+                } else {
+                    fail("FAILED TO GET JIMS GIFT");
+                }
+            }
+        });
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Log out of the app to preprare for the next test
 
