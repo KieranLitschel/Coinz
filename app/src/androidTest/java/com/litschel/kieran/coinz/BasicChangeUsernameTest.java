@@ -36,11 +36,11 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// This is the same as the basic exchange test but we run it offline instead
+// Tests creating a username under expected use
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class OfflineBasicExchangeTest {
+public class BasicChangeUsernameTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -53,12 +53,10 @@ public class OfflineBasicExchangeTest {
     @Before
     public void beforeTest() {
         DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "",
-                new String[][]{new String[]{"QUID", "50.0"}});
     }
 
     @Test
-    public void offlineBasicExchangeTest() {
+    public void basicExchangeTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -151,25 +149,6 @@ public class OfflineBasicExchangeTest {
             e.printStackTrace();
         }
 
-        // Put the app into offline mode
-
-        ViewInteraction floatingActionButtonInternetOff = onView(
-                allOf(withId(R.id.internetButton),
-                        childAtPosition(
-                                allOf(withId(R.id.content_frame),
-                                        childAtPosition(
-                                                withId(R.id.drawer_layout),
-                                                0)),
-                                0),
-                        isDisplayed()));
-        floatingActionButtonInternetOff.perform(click());
-
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
         // Open the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
@@ -193,50 +172,23 @@ public class OfflineBasicExchangeTest {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
-        // Open the exchange dialog fragment
+        // Open the gift dialog fragment, which as there is no username will open the create
+        // username dialog
 
         ViewInteraction floatingActionButton = onView(
-                allOf(withId(R.id.exchangeCryptoBtn),
+                allOf(withId(R.id.giftCryptoBtn),
                         childAtPosition(
                                 childAtPosition(
                                         withId(R.id.flContent),
                                         0),
-                                1),
+                                2),
                         isDisplayed()));
         floatingActionButton.perform(click());
 
-        // Exchange 25 QUID for GOLD
+        // Change username
 
-        ViewInteraction appCompatSpinner3 = onView(
-                allOf(withId(R.id.cryptoSpinner),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                1),
-                        isDisplayed()));
-        appCompatSpinner3.perform(click());
-
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
-                .inRoot(isPlatformPopup())
-                .perform(click());
-
-        ViewInteraction appCompatEditText = onView(
-                allOf(withId(R.id.tradeAmountEditText),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                3),
-                        isDisplayed()));
-        appCompatEditText.perform(replaceText("25"), closeSoftKeyboard());
-
-        // CHECK EXCHANGE RATE IS CORRECT
-
-        ViewInteraction textView = onView(
-                allOf(withId(R.id.exchangeRateText), withText("Exchange rate:\n54.02282290035586"),
+        ViewInteraction appCompatEditText8 = onView(
+                allOf(withId(R.id.usernameEditText),
                         childAtPosition(
                                 allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
@@ -244,120 +196,58 @@ public class OfflineBasicExchangeTest {
                                                 0)),
                                 2),
                         isDisplayed()));
-        textView.check(matches(withText("Exchange rate:\n54.02282290035586")));
+        appCompatEditText8.perform(replaceText("bob"), closeSoftKeyboard());
 
-        // CHECK EDIT TEXT IS CORRECT
-
-        ViewInteraction editText = onView(
-                allOf(withId(R.id.tradeAmountEditText), withText("25"),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                3),
-                        isDisplayed()));
-        editText.check(matches(withText("25")));
-
-        // CHECK OFFERED CRYPTO IS CORRECT
-
-        ViewInteraction textView2 = onView(
-                allOf(withId(R.id.offeredGoldText), withText("Offered gold for crypto:\n1350.5705725088965"),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                4),
-                        isDisplayed()));
-        textView2.check(matches(withText("Offered gold for crypto:\n1350.5705725088965")));
-
-        // CHECK REMAINING CRYPTO BANK WILL ACCEPT TODAY IS CORRECT
-
-        ViewInteraction textView3 = onView(
-                allOf(withId(R.id.coinsRemainingToday), withText("Remaining crypto bank will accept today:\n0.0"),
-                        childAtPosition(
-                                allOf(withId(R.id.constraintLayout),
-                                        childAtPosition(
-                                                withId(android.R.id.custom),
-                                                0)),
-                                5),
-                        isDisplayed()));
-        textView3.check(matches(withText("Remaining crypto bank will accept today:\n0.0")));
-
-        // CLICK ACCEPT TRADE BUTTON
-
-        ViewInteraction appCompatButton4 = onView(
-                allOf(withId(android.R.id.button1), withText("Accept Trade"),
+        ViewInteraction appCompatButton5 = onView(
+                allOf(withId(android.R.id.button1), withText("Create username"),
                         childAtPosition(
                                 childAtPosition(
                                         withClassName(is("android.widget.ScrollView")),
                                         0),
                                 3)));
-        appCompatButton4.perform(scrollTo(), click());
+        appCompatButton5.perform(scrollTo(), click());
 
         try {
-            Thread.sleep(5000);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        // Check the balances updated as expected
+        // Open the gift dialog fragment
 
-        ViewInteraction textViewBal = onView(
-                allOf(withId(R.id.GOLDText), withText("GOLD:\n1350.5705725088965\n"),
+        ViewInteraction floatingActionButton2 = onView(
+                allOf(withId(R.id.giftCryptoBtn),
                         childAtPosition(
-                                allOf(withId(R.id.GOLDRow),
+                                childAtPosition(
+                                        withId(R.id.flContent),
+                                        0),
+                                2),
+                        isDisplayed()));
+        floatingActionButton2.perform(click());
+
+        // Check the username is updated correctly
+
+        ViewInteraction textView6 = onView(
+                allOf(withId(R.id.usernameText), withText("Your username is:\nbob"),
+                        childAtPosition(
+                                allOf(withId(R.id.constraintLayout),
                                         childAtPosition(
-                                                withId(R.id.CoinsTable),
+                                                withId(android.R.id.custom),
                                                 0)),
-                                0),
+                                1),
                         isDisplayed()));
-        textViewBal.check(matches(withText("GOLD:\n1350.5705725088965\n")));
+        textView6.check(matches(withText("Your username is:\nbob")));
 
-        ViewInteraction textViewBal2 = onView(
-                allOf(withId(R.id.PENYText), withText("PENY:\n0.0\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.PENYRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                1)),
-                                0),
-                        isDisplayed()));
-        textViewBal2.check(matches(withText("PENY:\n0.0\n")));
+        // Cancel sending gift
 
-        ViewInteraction textViewBal3 = onView(
-                allOf(withId(R.id.DOLRText), withText("DOLR:\n0.0\n"),
+        ViewInteraction appCompatButton11 = onView(
+                allOf(withId(android.R.id.button2), withText("Cancel"),
                         childAtPosition(
-                                allOf(withId(R.id.DOLRRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                2)),
-                                0),
-                        isDisplayed()));
-        textViewBal3.check(matches(withText("DOLR:\n0.0\n")));
-
-        ViewInteraction textViewBal4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n0.0\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.SHILRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                3)),
-                                0),
-                        isDisplayed()));
-        textViewBal4.check(matches(withText("SHIL:\n0.0\n")));
-
-        ViewInteraction textViewBal5 = onView(
-                allOf(withId(R.id.QUIDText), withText("QUID:\n25.0\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.QUIDRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                4)),
-                                0),
-                        isDisplayed()));
-        textViewBal5.check(matches(withText("QUID:\n25.0\n")));
+                                childAtPosition(
+                                        withClassName(is("android.widget.ScrollView")),
+                                        0),
+                                2)));
+        appCompatButton11.perform(scrollTo(), click());
 
         // Log out of the app to preprare for the next test
 

@@ -82,15 +82,14 @@ class DatabaseMethods {
         }
     }
 
-    static void setupTester1WithCurrency(String[][] currenciesNdAmounts){
+    static void setupUser(String uid, String username, String[][] currenciesNdAmounts){
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
-        String uid = "ROtiCeFTuIZ3xNOhEweThG3htXj1";
         WriteBatch batch = db.batch();
 
         DocumentReference userDocRef = db.collection("users-test").document(uid);
         Map<String, Object> user_defaults = new HashMap<>();
-        user_defaults.put("username", "");
+        user_defaults.put("username", username);
         for (String aCurrency : currencies) {
             boolean set = false;
             for (String[] currencyNdAmount : currenciesNdAmounts){

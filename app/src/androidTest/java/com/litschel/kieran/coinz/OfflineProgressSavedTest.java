@@ -33,7 +33,7 @@ import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
-// This is the as the ProgressSavedTest, except we turn off the internet when collecting coins
+// This is the same as the ProgressSavedTest, except we turn off the internet when collecting coins
 // and using the exchange, then turn it back on after we've finished before the first logout
 
 @LargeTest

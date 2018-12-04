@@ -51,9 +51,10 @@ public class BasicExchangeTest {
                     "android.permission.ACCESS_FINE_LOCATION");
 
     @Before
-    public void beforeTest(){
+    public void beforeTest() {
         DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupTester1WithCurrency(new String[][]{new String[]{"QUID","50.0"}});
+        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "",
+                new String[][]{new String[]{"QUID", "50.0"}});
     }
 
     @Test

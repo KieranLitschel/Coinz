@@ -53,7 +53,7 @@ public class BreakExchangeTest {
     @Before
     public void beforeTest() {
         DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupTester1WithCurrency(new String[][]{
+        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "", new String[][]{
                 new String[]{"QUID", "25.1"},
                 new String[]{"DOLR", "12.5"}});
     }

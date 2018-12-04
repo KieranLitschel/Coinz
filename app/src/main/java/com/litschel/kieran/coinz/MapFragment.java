@@ -114,6 +114,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         mapView.getMapAsync(mapboxMap -> {
             map = mapboxMap;
+            LatLngBounds PLAY_BOUNDS = new LatLngBounds.Builder()
+                    .include(new LatLng(55.946233, -3.192473))
+                    .include(new LatLng(55.946233, -3.184319))
+                    .include(new LatLng(55.942617, -3.192473))
+                    .include(new LatLng(55.942617, -3.184319))
+                    .build();
+            map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
             enableLocationPlugin();
             // Run initial setup after the map has been created to avoid null pointer exception on map
             initialSetup();
@@ -199,14 +206,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (lastLocation == null) {
             locationEngine.addLocationEngineListener(this);
         }
-
-        LatLngBounds PLAY_BOUNDS = new LatLngBounds.Builder()
-                .include(new LatLng(55.946233, -3.192473))
-                .include(new LatLng(55.946233, -3.184319))
-                .include(new LatLng(55.942617, -3.192473))
-                .include(new LatLng(55.942617, -3.184319))
-                .build();
-        map.setLatLngBoundsForCameraTarget(PLAY_BOUNDS);
 
         locationManager = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
