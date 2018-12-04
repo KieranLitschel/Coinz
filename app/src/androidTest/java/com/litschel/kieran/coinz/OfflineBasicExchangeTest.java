@@ -40,7 +40,7 @@ import static org.hamcrest.Matchers.is;
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class BasicExchangeOfflineTest {
+public class OfflineBasicExchangeTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -57,7 +57,7 @@ public class BasicExchangeOfflineTest {
     }
 
     @Test
-    public void basicExchangeOfflineTest() {
+    public void offlineBasicExchangeTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
