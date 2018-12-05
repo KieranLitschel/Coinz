@@ -107,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private FloatingActionButton flipInternetStateBtn;
     private FloatingActionButton nextDayBtn;
     private LocalDate fixedTestDay = LocalDate.of(2018, 12, 1);
+    private boolean justLoggedIn;
 
     private void onNetworkChange() {
         if ((!tester && activity.isNetworkAvailable()) || (tester && activity.isNetworkAvailable() && testerInternet)) {
@@ -188,6 +189,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
+        justLoggedIn = true;
         setupIfTester();
 
         if (tester) {
@@ -333,6 +335,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 // When only using one sign in method (in this case email), the uid for each user is unique
                 // so we can use this to uniquely identify them in the database
                 uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+                justLoggedIn = true;
                 setupIfTester();
                 SharedPreferences.Editor editor = settings.edit();
                 editor.putString("uid", uid);
@@ -572,7 +575,15 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                                 });
                                                 currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
                                             }
-                                            coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, mapUpdateLock, settings, currencyChanges));
+                                            // If this happened on login then the user downloaded the balances including the gifts, so we don't need to update the local values
+                                            // as they match those in the database. There is a risk with this approach if a new gift comes in after the map is downloaded but
+                                            // before this code is reached then the local balance may be lower than the balance in the database. But this will be resolved when
+                                            // the user logs out and back in again, so it is not a major issue
+                                            if (!justLoggedIn){
+                                                coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, mapUpdateLock, settings, currencyChanges));
+                                            } else {
+                                                justLoggedIn = false;
+                                            }
                                         }
                                     }
                                 }).addOnFailureListener(new OnFailureListener() {
@@ -580,15 +591,24 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                     public void onFailure(@NonNull Exception e) {
                                         System.out.printf("TRANSACTION FOR RECEIVING GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
                                         settingUpUserGiftListener = false;
+                                        if (justLoggedIn){
+                                            justLoggedIn = false;
+                                        }
                                     }
                                 });
                             } else {
                                 System.out.println("COULD NOT FIND USERNAMES DOC");
                                 settingUpUserGiftListener = false;
+                                if (justLoggedIn){
+                                    justLoggedIn = false;
+                                }
                             }
                         } else {
                             System.out.printf("GETTING USERNAMES DOC FOR SHOWING GIFTS FAILED WITH EXCEPTION:\n%s\n", task.getException().getMessage());
                             settingUpUserGiftListener = false;
+                            if (justLoggedIn){
+                                justLoggedIn = false;
+                            }
                         }
                     }
                 });
@@ -608,6 +628,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                         if (e != null) {
                             System.out.printf("LISTENING FOR GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
                             userGiftListener = null;
+                            if (justLoggedIn){
+                                justLoggedIn = false;
+                            }
                             return;
                         }
 
@@ -622,6 +645,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                             }
                         } else {
                             System.out.println("USERS GIFT DOCUMENT IS NULL");
+                            if (justLoggedIn){
+                                justLoggedIn = false;
+                            }
                         }
                     }
                 });

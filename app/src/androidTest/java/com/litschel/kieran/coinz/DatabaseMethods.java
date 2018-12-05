@@ -1,21 +1,29 @@
 package com.litschel.kieran.coinz;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.Transaction;
 import com.google.firebase.firestore.WriteBatch;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import static org.junit.Assert.fail;
 
 class DatabaseMethods {
     static void resetTestDB() {
@@ -138,4 +146,62 @@ class DatabaseMethods {
             e.printStackTrace();
         }
     }
+
+    // Modified version of send gift to recipient from GiftCryptoDialogFragment
+    static void sendGiftToRecipient(String senderUid, String recipientUid, String selectedCurrency, double giftAmount) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        final DocumentReference senderRef = db.collection("users-test").document(senderUid);
+        final DocumentReference recipientRef = db.collection("users-test").document(recipientUid);
+        final DocumentReference recipientGiftRef = db.collection("users_gifts-test").document(recipientUid);
+        final DocumentReference giftRef = db.collection("gifts-test").document();
+        db.runTransaction(new Transaction.Function<Void>() {
+            @Nullable
+            @Override
+            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
+                DocumentSnapshot recipientGiftSnapshot = transaction.get(recipientGiftRef);
+
+                // If someone has sent themself a gift we don't need to update the balances. We allow
+                // people to send themselves gifts as it allows testing the gift listener using espresso tests
+                if (!recipientUid.equals(senderUid)) {
+                    DocumentSnapshot recipientSnapshot = transaction.get(recipientRef);
+                    DocumentSnapshot senderSnapshot = transaction.get(senderRef);
+                    transaction.update(senderRef, selectedCurrency, senderSnapshot.getDouble(selectedCurrency) - giftAmount);
+                    transaction.update(recipientRef, selectedCurrency, recipientSnapshot.getDouble(selectedCurrency) + giftAmount);
+                }
+
+                Map<String, Object> giftInfo = new HashMap<>();
+                // We store the UID rather than the username in case the sender changes their username
+                // before the recipient is notified of the gift
+                giftInfo.put("senderUid", senderUid);
+                giftInfo.put("currency", selectedCurrency);
+                giftInfo.put("amount", giftAmount);
+
+                transaction.set(giftRef, giftInfo);
+
+                List<String> giftsList = (List<String>) recipientGiftSnapshot.get("gifts");
+                giftsList.add(giftRef.getId());
+                transaction.update(recipientGiftRef, "gifts", giftsList);
+
+
+                return null;
+            }
+        }).addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                System.out.println("GIFT SENT SUCCESSFULLY");
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                fail("FAILED SENDING GIFT TO RECIPIENT");
+            }
+        });
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
