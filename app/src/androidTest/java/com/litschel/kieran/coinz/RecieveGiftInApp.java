@@ -36,11 +36,11 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Test whether the app handles receiving a gift on login correctly
+// Test whether the app handles receiving a gift correctly when we are using the app
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class RecieveGiftOnLogin {
+public class RecieveGiftInApp {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -56,7 +56,6 @@ public class RecieveGiftOnLogin {
         DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
         DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{
                 new String[]{"SHIL", "100"}});
-        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",100.0);
     }
 
     @Test
@@ -175,6 +174,16 @@ public class RecieveGiftOnLogin {
                         2),
                         isDisplayed()));
         navigationMenuItemView.perform(click());
+
+        // Simulate jim sending a gift to bob
+
+        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",100.0);
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Check the balance is updated correctly
 

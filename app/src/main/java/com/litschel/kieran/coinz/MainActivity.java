@@ -573,7 +573,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                                         Toast.makeText(activity, String.format("Recieved %s %s from %s", amount, currency, senderName), Toast.LENGTH_LONG).show();
                                                     }
                                                 });
-                                                currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
+                                                if (!justLoggedIn){
+                                                    currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
+                                                }
                                             }
                                             // If this happened on login then the user downloaded the balances including the gifts, so we don't need to update the local values
                                             // as they match those in the database. There is a risk with this approach if a new gift comes in after the map is downloaded but
@@ -642,6 +644,10 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                 userGiftListener.remove();
                                 userGiftListener = null;
                                 showGifts();
+                            } else {
+                                if (justLoggedIn){
+                                    justLoggedIn = false;
+                                }
                             }
                         } else {
                             System.out.println("USERS GIFT DOCUMENT IS NULL");
