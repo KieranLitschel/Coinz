@@ -36,11 +36,12 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Test whether the app handles receiving a gift correctly when we are using the app
+// Test whether the app handles going offline (killing the gift listner), a gift being sent to the
+// user while offline, and then the app coming back online (restarting the gift listner)
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class RecieveGiftInAppTest {
+public class RecieveGiftAfterOfflineTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -59,7 +60,7 @@ public class RecieveGiftInAppTest {
     }
 
     @Test
-    public void recieveGiftOnLoginTest() {
+    public void recieveGiftAfterOfflineTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -175,9 +176,47 @@ public class RecieveGiftInAppTest {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
+        // Go offline
+
+        ViewInteraction floatingActionButton = onView(
+                allOf(withId(R.id.internetButton),
+                        childAtPosition(
+                                allOf(withId(R.id.content_frame),
+                                        childAtPosition(
+                                                withId(R.id.drawer_layout),
+                                                0)),
+                                0),
+                        isDisplayed()));
+        floatingActionButton.perform(click());
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // Simulate jim sending a gift to bob
 
         DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",100.0);
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Go online again
+
+        ViewInteraction floatingActionButton3 = onView(
+                allOf(withId(R.id.internetButton),
+                        childAtPosition(
+                                allOf(withId(R.id.content_frame),
+                                        childAtPosition(
+                                                withId(R.id.drawer_layout),
+                                                0)),
+                                0),
+                        isDisplayed()));
+        floatingActionButton3.perform(click());
 
         try {
             Thread.sleep(5000);

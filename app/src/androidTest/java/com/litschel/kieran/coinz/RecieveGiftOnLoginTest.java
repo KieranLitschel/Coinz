@@ -40,7 +40,7 @@ import static org.hamcrest.Matchers.is;
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class RecieveGiftOnLogin {
+public class RecieveGiftOnLoginTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -60,7 +60,7 @@ public class RecieveGiftOnLogin {
     }
 
     @Test
-    public void recieveGiftOnLogin() {
+    public void recieveGiftOnLoginTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
