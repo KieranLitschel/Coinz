@@ -110,7 +110,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private boolean justLoggedIn;
 
     private void onNetworkChange() {
-        if ((!tester && activity.isNetworkAvailable()) || (tester && activity.isNetworkAvailable() && testerInternet)) {
+        if (isNetworkAvailable()) {
             if (waitingToListenForGifts) {
                 waitingToListenForGifts = false;
                 setUpListenerForGifts();
@@ -370,7 +370,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     } else {
                         System.out.println("USER EXISTS IN DATABASE");
                         setDefaultFragment();
-                        setUpListenerForGifts();
                     }
                 } else {
                     System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
@@ -405,7 +404,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     public void onSuccess(Void aVoid) {
                         System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
                         setDefaultFragment();
-                        setUpListenerForGifts();
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
@@ -619,6 +617,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private void setUpListenerForGifts() {
 
         if (!uid.equals("") && !settingUpUserGiftListener && userGiftListener == null && !waitingToListenForGifts) {
+
+            settingUpUserGiftListener = true;
 
             if (isNetworkAvailable()) {
                 final DocumentReference userGiftsDocRef = db.collection(users_gifts).document(uid);
