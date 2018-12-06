@@ -36,7 +36,8 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// Tests whether the map downloads correctly
+// Tests whether the map downloads correctly after the day changing while we're offline, and then
+// coming back online
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)

@@ -36,7 +36,7 @@ import static org.hamcrest.Matchers.is;
 // not reliable as the emulator combined with mapbox does not seem to track location reliably. To
 // overcome this I've added a button to collect the next coin in the markers array, which executes
 // the same functionality as if the location listener fired when the player got close enough to the
-// coin
+// next coin in the array
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)

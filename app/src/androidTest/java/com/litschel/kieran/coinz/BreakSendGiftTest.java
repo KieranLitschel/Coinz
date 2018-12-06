@@ -36,7 +36,8 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// This test tries to break the exchange activity by trading more coin than we have
+// This test tries to break the gift activity by trying to gift more coin than we have, and trying
+// to gift coin to a non-existent user
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)

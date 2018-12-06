@@ -29,6 +29,7 @@ import static org.junit.Assert.fail;
 class DatabaseMethods {
 
     // Resets the test database to the default state
+
     static void resetTestDB() {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("users-test")
@@ -95,6 +96,7 @@ class DatabaseMethods {
 
     // Sets up a user in the database with a specifiable username and amount of each currency, is
     // a modified version of setFirstTimeUser from MainActivity
+
     static void setupUser(String uid, String username, String[][] currenciesNdAmounts) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
@@ -152,6 +154,7 @@ class DatabaseMethods {
     }
 
     // Modified version of send gift to recipient from GiftCryptoDialogFragment
+
     static void sendGiftToRecipient(String senderUid, String recipientUid, String selectedCurrency, double giftAmount) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         final DocumentReference senderRef = db.collection("users-test").document(senderUid);

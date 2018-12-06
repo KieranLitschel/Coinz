@@ -32,7 +32,7 @@ import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
-// This is the same test as collecting coins but we run it offline instead.
+// This is the same test as CollectCoinsTest but we run it offline instead.
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)

@@ -37,8 +37,8 @@ import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
 // Tests trying to break the change username dialog, we test this as opposed to create username
-// as the potential errors are the same, except the user can try and change their username to
-// the same thing
+// as in addition to the potential of a username already existing in create username, we run
+// into the potential of a user trying to change their name to the same thing
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)

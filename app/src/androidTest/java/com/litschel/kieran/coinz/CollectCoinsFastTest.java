@@ -32,8 +32,8 @@ import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
-// This test is similair to the collect coins test, but the interval between pressing the collect
-// coin button is much shorter, like could sometimes occur when using the app outside using GPS
+// This test is similar to the collect coins test, but the interval between pressing the collect
+// coin button is much shorter, which tests how the app handles collecting coins concurrently
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
