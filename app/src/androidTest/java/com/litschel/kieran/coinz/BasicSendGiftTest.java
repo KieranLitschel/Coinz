@@ -44,10 +44,8 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-// Tests creating a username under expected use
-
-// Also note we do not need to test basic functionality of changing username as the create username
-// and change username dialogs are the same with just a couple cosmetic tweaks
+// Tests sending a gift under expected use, we confirm the gift sent successfully by querying the firestore
+// and using assertions to ensure the database updated correctly
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)

@@ -2,7 +2,6 @@ package com.litschel.kieran.coinz;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
@@ -25,7 +24,11 @@ import java.util.Map;
 
 import static org.junit.Assert.fail;
 
+// This is a set of database methods that we use to support testing the database
+
 class DatabaseMethods {
+
+    // Resets the test database to the default state
     static void resetTestDB() {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("users-test")
@@ -74,12 +77,12 @@ class DatabaseMethods {
                                                     }
                                                 });
                                             } else {
-                                                System.out.println("FAILED TO DELETE USERS TEST DB");
+                                                fail("FAILED TO DELETE USERS TEST DB");
                                             }
                                         }
                                     });
                         } else {
-                            System.out.println("FAILED TO DELETE USERS TEST DB");
+                            fail("FAILED TO DELETE USERS TEST DB");
                         }
                     }
                 });
@@ -90,6 +93,8 @@ class DatabaseMethods {
         }
     }
 
+    // Sets up a user in the database with a specifiable username and amount of each currency, is
+    // a modified version of setFirstTimeUser from MainActivity
     static void setupUser(String uid, String username, String[][] currenciesNdAmounts) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
@@ -121,7 +126,6 @@ class DatabaseMethods {
             batch.update(usernamesDocRef, uid, username);
         }
 
-        // We store gifts in a separate document to make listening for changes simpler
         DocumentReference userGiftDocRef = db.collection("users_gifts-test").document(uid);
         Map<String, Object> user_gift_defaults = new HashMap<>();
         user_gift_defaults.put("gifts", new ArrayList<String>());
@@ -137,7 +141,7 @@ class DatabaseMethods {
                 .addOnFailureListener(new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception e) {
-                        System.out.println("FAILED TO ADD USER TO DATABASE");
+                        fail("FAILED TO ADD USER TO DATABASE");
                     }
                 });
         try {

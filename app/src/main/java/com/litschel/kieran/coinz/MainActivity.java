@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private FloatingActionButton nextDayBtn;
     private LocalDate fixedTestDay = LocalDate.of(2018, 12, 1);
     private boolean justLoggedIn;
+    private boolean justUpdated;
 
     private void onNetworkChange() {
         if (isNetworkAvailable()) {
@@ -189,7 +190,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
-        justLoggedIn = true;
         setupIfTester();
 
         if (tester) {
@@ -370,6 +370,11 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     } else {
                         System.out.println("USER EXISTS IN DATABASE");
                         setDefaultFragment();
+                        // Note if we've just logged in we show gifts rather setting up the listener,
+                        // this is to allow us to prevent updating the local coins values with gifts
+                        // we recieve on login, as we will already have the up to date values downloaded
+                        settingUpUserGiftListener = true;
+                        showGifts();
                     }
                 } else {
                     System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
@@ -404,6 +409,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                     public void onSuccess(Void aVoid) {
                         System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
                         setDefaultFragment();
+                        settingUpUserGiftListener = true;
+                        showGifts();
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
@@ -474,7 +481,9 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         if (coinsUpdateExecutor.isShutdown()) {
             coinsUpdateExecutor = Executors.newFixedThreadPool(1);
         }
-        setUpListenerForGifts();
+        if (!justLoggedIn) {
+            setUpListenerForGifts();
+        }
     }
 
     @Override
@@ -557,6 +566,8 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                     @Override
                                     public void onSuccess(ArrayList<String[]> giftDetails) {
                                         // Once we've gotten the current batch of gifts we set up a listener to listen for new gifts
+                                        settingUpUserGiftListener = false;
+                                        justUpdated = true;
                                         setUpListenerForGifts();
                                         // After that we show the gifts we have just fetched
                                         if (giftDetails.size() > 0) {
@@ -571,19 +582,16 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                                         Toast.makeText(activity, String.format("Recieved %s %s from %s", amount, currency, senderName), Toast.LENGTH_LONG).show();
                                                     }
                                                 });
-                                                if (!justLoggedIn){
+                                                if (!justLoggedIn) {
                                                     currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
                                                 }
                                             }
-                                            // If this happened on login then the user downloaded the balances including the gifts, so we don't need to update the local values
-                                            // as they match those in the database. There is a risk with this approach if a new gift comes in after the map is downloaded but
-                                            // before this code is reached then the local balance may be lower than the balance in the database. But this will be resolved when
-                                            // the user logs out and back in again, so it is not a major issue
-                                            if (!justLoggedIn){
+                                            if (!justLoggedIn) {
                                                 coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, mapUpdateLock, settings, currencyChanges));
-                                            } else {
-                                                justLoggedIn = false;
                                             }
+                                        }
+                                        if (justLoggedIn){
+                                            justLoggedIn = false;
                                         }
                                     }
                                 }).addOnFailureListener(new OnFailureListener() {
@@ -591,24 +599,15 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                     public void onFailure(@NonNull Exception e) {
                                         System.out.printf("TRANSACTION FOR RECEIVING GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
                                         settingUpUserGiftListener = false;
-                                        if (justLoggedIn){
-                                            justLoggedIn = false;
-                                        }
                                     }
                                 });
                             } else {
                                 System.out.println("COULD NOT FIND USERNAMES DOC");
                                 settingUpUserGiftListener = false;
-                                if (justLoggedIn){
-                                    justLoggedIn = false;
-                                }
                             }
                         } else {
                             System.out.printf("GETTING USERNAMES DOC FOR SHOWING GIFTS FAILED WITH EXCEPTION:\n%s\n", task.getException().getMessage());
                             settingUpUserGiftListener = false;
-                            if (justLoggedIn){
-                                justLoggedIn = false;
-                            }
                         }
                     }
                 });
@@ -630,30 +629,29 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                         if (e != null) {
                             System.out.printf("LISTENING FOR GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
                             userGiftListener = null;
-                            if (justLoggedIn){
-                                justLoggedIn = false;
-                            }
                             return;
                         }
 
-                        if (snapshot != null && snapshot.exists()) {
-                            System.out.println("FOUND NEW GIFTS");
-                            ArrayList<String> gifts = (ArrayList<String>) snapshot.get("gifts");
-                            if (gifts.size() > 0) {
-                                settingUpUserGiftListener = true;
-                                userGiftListener.remove();
-                                userGiftListener = null;
-                                showGifts();
-                            } else {
-                                if (justLoggedIn){
-                                    justLoggedIn = false;
+                        // We use justUpdated to prevent checking for changes when a gift has just been
+                        // shown, as I found this could lead to infinite loops
+
+                        if (!justUpdated){
+
+                            if (snapshot != null && snapshot.exists()) {
+                                System.out.println("FOUND NEW GIFTS");
+                                ArrayList<String> gifts = (ArrayList<String>) snapshot.get("gifts");
+                                if (gifts.size() > 0) {
+                                    settingUpUserGiftListener = true;
+                                    userGiftListener.remove();
+                                    userGiftListener = null;
+                                    showGifts();
                                 }
+                            } else {
+                                System.out.println("USERS GIFT DOCUMENT IS NULL");
                             }
+
                         } else {
-                            System.out.println("USERS GIFT DOCUMENT IS NULL");
-                            if (justLoggedIn){
-                                justLoggedIn = false;
-                            }
+                            justUpdated = false;
                         }
                     }
                 });

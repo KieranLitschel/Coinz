@@ -1,6 +1,7 @@
 package com.litschel.kieran.coinz;
 
 
+import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -18,29 +19,28 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static android.support.test.espresso.action.ViewActions.replaceText;
 import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
-// In this test we test collecting coins. Testing collecting coins using the location listener is
-// not reliable as the emulator combined with mapbox does not seem to track location reliably. To
-// overcome this I've added a button to collect the next coin in the markers array, which executes
-// the same functionality as if the location listener fired when the player got close enough to the
-// coin
+// Test whether the gift handler is set back up correctly after receiving a gift
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
-public class CollectCoinsTest {
+public class RecieveMultipleGiftsTest {
 
     @Rule
     public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
@@ -53,11 +53,13 @@ public class CollectCoinsTest {
     @Before
     public void beforeTest(){
         DatabaseMethods.resetTestDB();
+        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
+        DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{
+                new String[]{"SHIL", "100"}});
     }
 
     @Test
-    public void collectCoinsTest() {
-
+    public void receiveMultipleGiftsTest() {
         // Login
 
         // Added a sleep statement to match the app's execution delay.
@@ -141,8 +143,6 @@ public class CollectCoinsTest {
                                 4)));
         appCompatButton2.perform(scrollTo(), click());
 
-        // Click the collect coins button enough times to have collected some of each coin
-
         // Added a sleep statement to match the app's execution delay.
         // The recommended way to handle such scenarios is to use Espresso idling resources:
         // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
@@ -152,160 +152,7 @@ public class CollectCoinsTest {
             e.printStackTrace();
         }
 
-        ViewInteraction floatingActionButton = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton2 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton2.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton3 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton3.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton4 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton4.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton5 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton5.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton6 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton6.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton7 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton7.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton8 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton8.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction floatingActionButton9 = onView(
-                allOf(withId(R.id.collectCoinFAB),
-                        childAtPosition(
-                                allOf(withId(R.id.coordinatorLayout),
-                                        childAtPosition(
-                                                withId(R.id.flContent),
-                                                0)),
-                                2),
-                        isDisplayed()));
-        floatingActionButton9.perform(click());
-
-        try {
-            Thread.sleep(4500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Go to the balance fragment
+        // Open the balance fragment
 
         ViewInteraction appCompatImageButton = onView(
                 allOf(withContentDescription("Navigate up"),
@@ -328,43 +175,20 @@ public class CollectCoinsTest {
                         isDisplayed()));
         navigationMenuItemView.perform(click());
 
-        // Check the balances updated as expected
+        // Simulate jim sending a gift to bob
 
-        ViewInteraction textView = onView(
-                allOf(withId(R.id.GOLDText), withText("GOLD:\n0.0\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.GOLDRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                0)),
-                                0),
-                        isDisplayed()));
-        textView.check(matches(withText("GOLD:\n0.0\n")));
+        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",50.0);
 
-        ViewInteraction textView2 = onView(
-                allOf(withId(R.id.PENYText), withText("PENY:\n6.679450014816521\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.PENYRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                1)),
-                                0),
-                        isDisplayed()));
-        textView2.check(matches(withText("PENY:\n6.679450014816521\n")));
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        ViewInteraction textView3 = onView(
-                allOf(withId(R.id.DOLRText), withText("DOLR:\n6.780261952440848\n"),
-                        childAtPosition(
-                                allOf(withId(R.id.DOLRRow),
-                                        childAtPosition(
-                                                withId(R.id.CoinsTable),
-                                                2)),
-                                0),
-                        isDisplayed()));
-        textView3.check(matches(withText("DOLR:\n6.780261952440848\n")));
+        // Check the balance is updated correctly
 
         ViewInteraction textView4 = onView(
-                allOf(withId(R.id.SHILText), withText("SHIL:\n27.139268122070483\n"),
+                allOf(withId(R.id.SHILText), withText("SHIL:\n50.0\n"),
                         childAtPosition(
                                 allOf(withId(R.id.SHILRow),
                                         childAtPosition(
@@ -372,18 +196,30 @@ public class CollectCoinsTest {
                                                 3)),
                                 0),
                         isDisplayed()));
-        textView4.check(matches(withText("SHIL:\n27.139268122070483\n")));
+        textView4.check(matches(withText("SHIL:\n50.0\n")));
+
+        // Simulate jim sending another gift to bob
+
+        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",50.0);
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Check the balance is updated correctly
 
         ViewInteraction textView5 = onView(
-                allOf(withId(R.id.QUIDText), withText("QUID:\n15.475834848170207\n"),
+                allOf(withId(R.id.SHILText), withText("SHIL:\n100.0\n"),
                         childAtPosition(
-                                allOf(withId(R.id.QUIDRow),
+                                allOf(withId(R.id.SHILRow),
                                         childAtPosition(
                                                 withId(R.id.CoinsTable),
-                                                4)),
+                                                3)),
                                 0),
                         isDisplayed()));
-        textView5.check(matches(withText("QUID:\n15.475834848170207\n")));
+        textView5.check(matches(withText("SHIL:\n100.0\n")));
 
         // Logout to prepare for the next test
 
