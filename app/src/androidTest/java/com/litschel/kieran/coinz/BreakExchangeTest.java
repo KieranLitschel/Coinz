@@ -1,7 +1,6 @@
 package com.litschel.kieran.coinz;
 
 
-import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -19,7 +18,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
@@ -33,7 +31,6 @@ import static android.support.test.espresso.matcher.ViewMatchers.withContentDesc
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
 // This test tries to break the exchange activity by trading more coin than we have
@@ -200,7 +197,7 @@ public class BreakExchangeTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("DOLR"))
+        onView(withText("DOLR"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -241,7 +238,7 @@ public class BreakExchangeTest {
                         isDisplayed()));
         appCompatSpinnerShil.perform(click());
 
-        ViewInteraction appCompatCheckedTextViewShil = onView(withText("SHIL"))
+        onView(withText("SHIL"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -271,7 +268,7 @@ public class BreakExchangeTest {
                         isDisplayed()));
         appCompatSpinnerQuid.perform(click());
 
-        ViewInteraction appCompatCheckedTextViewQuid = onView(withText("QUID"))
+        onView(withText("QUID"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -354,7 +351,7 @@ public class BreakExchangeTest {
                         isDisplayed()));
         appCompatSpinner3Quid2.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3Quid2 = onView(withText("QUID"))
+        onView(withText("QUID"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -424,7 +421,7 @@ public class BreakExchangeTest {
                         isDisplayed()));
         appCompatSpinner3Dolr.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3Dolr = onView(withText("DOLR"))
+        onView(withText("DOLR"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 

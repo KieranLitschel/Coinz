@@ -270,7 +270,7 @@ public class ProgressSavedTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("PENY"))
+        onView(withText("PENY"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -327,7 +327,7 @@ public class ProgressSavedTest {
                         isDisplayed()));
         appCompatSpinner3Gift.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3Gift = onView(withText("SHIL"))
+        onView(withText("SHIL"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 

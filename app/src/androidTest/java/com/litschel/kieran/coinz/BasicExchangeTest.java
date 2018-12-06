@@ -1,7 +1,6 @@
 package com.litschel.kieran.coinz;
 
 
-import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -19,7 +18,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
@@ -33,7 +31,6 @@ import static android.support.test.espresso.matcher.ViewMatchers.withContentDesc
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
 // Tests the coin exchange under expected use
@@ -199,7 +196,7 @@ public class BasicExchangeTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
+        onView(withText("QUID"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 

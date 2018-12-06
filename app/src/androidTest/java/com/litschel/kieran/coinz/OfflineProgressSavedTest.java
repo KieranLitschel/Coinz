@@ -286,7 +286,7 @@ public class OfflineProgressSavedTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("PENY"))
+        onView(withText("PENY"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 

@@ -1,7 +1,6 @@
 package com.litschel.kieran.coinz;
 
 
-import android.support.test.espresso.DataInteraction;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -19,7 +18,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static android.support.test.espresso.Espresso.onData;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
@@ -33,7 +31,6 @@ import static android.support.test.espresso.matcher.ViewMatchers.withContentDesc
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.is;
 
 // Tests whether the map downloads correctly after the day changing while we're offline, and then
@@ -271,7 +268,7 @@ public class OfflineDayChangeTest {
         // I wrote the below interaction myself as the espresso test was not recording selecting
         // the item on the spinner, I learnt to do it this way from the answer to this question
         // https://stackoverflow.com/questions/38920141/runtimeexception-in-android-espresso-when-selecting-spinner-in-dialog
-        ViewInteraction appCompatCheckedTextView = onView(withText("DOLR"))
+        onView(withText("DOLR"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -300,7 +297,7 @@ public class OfflineDayChangeTest {
                         isDisplayed()));
         appCompatSpinner2.perform(click());
 
-        ViewInteraction appCompatCheckedTextView2 = onView(withText("SHIL"))
+        onView(withText("SHIL"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -328,7 +325,7 @@ public class OfflineDayChangeTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("QUID"))
+        onView(withText("QUID"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 

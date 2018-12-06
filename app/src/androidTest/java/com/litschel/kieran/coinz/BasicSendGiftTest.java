@@ -1,7 +1,6 @@
 package com.litschel.kieran.coinz;
 
 
-import android.support.annotation.NonNull;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -11,8 +10,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -211,7 +208,7 @@ public class BasicSendGiftTest {
                         isDisplayed()));
         appCompatSpinner3.perform(click());
 
-        ViewInteraction appCompatCheckedTextView3 = onView(withText("SHIL"))
+        onView(withText("SHIL"))
                 .inRoot(isPlatformPopup())
                 .perform(click());
 
@@ -279,49 +276,43 @@ public class BasicSendGiftTest {
         DocumentReference jimsGiftDocument = db.collection("users_gifts-test").document("8SpoGV9JFlXKlIiuAXkQ22PB0MF3");
 
         jimsDocument.get()
-                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                        if (task.isSuccessful() && task.getResult().exists()){
-                            DocumentSnapshot document = task.getResult();
-                            Double shil = document.getDouble("SHIL");
-                            if (shil != null){
-                                assertEquals(shil,50.0,0.0);
-                            } else {
-                                fail("COULD NOT FIND SHIL IN JIMS DOCUMENT");
-                            }
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult().exists()){
+                        DocumentSnapshot document = task.getResult();
+                        Double shil = document.getDouble("SHIL");
+                        if (shil != null){
+                            assertEquals(shil,50.0,0.0);
                         } else {
-                            fail("FAILED TO GET JIMS DOCUMENT");
+                            fail("COULD NOT FIND SHIL IN JIMS DOCUMENT");
                         }
+                    } else {
+                        fail("FAILED TO GET JIMS DOCUMENT");
                     }
                 });
 
         jimsGiftDocument.get()
-                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                        if (task.isSuccessful() && task.getResult().exists()){
-                            DocumentSnapshot document = task.getResult();
-                            Object giftsObj = document.get("gifts");
-                            if (giftsObj != null){
-                                try {
-                                    // We suppress warning here as impossible to fail, but IDE gives a warning falsely about unchecked cast
-                                    @SuppressWarnings("unchecked")
-                                    ArrayList<String> gifts = (ArrayList<String>) giftsObj;
-                                    if (!gifts.isEmpty()){
-                                        jimsGiftId = gifts.get(0);
-                                    } else {
-                                        fail("NO GIFTS FOUND IN ARRAY LIST");
-                                    }
-                                } catch (ClassCastException e){
-                                    fail("GIFTS IS NOT AN ARRAY LIST");
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult().exists()){
+                        DocumentSnapshot document = task.getResult();
+                        Object giftsObj = document.get("gifts");
+                        if (giftsObj != null){
+                            try {
+                                // We suppress warning here as impossible to fail, but IDE gives a warning falsely about unchecked cast
+                                @SuppressWarnings("unchecked")
+                                ArrayList<String> gifts = (ArrayList<String>) giftsObj;
+                                if (!gifts.isEmpty()){
+                                    jimsGiftId = gifts.get(0);
+                                } else {
+                                    fail("NO GIFTS FOUND IN ARRAY LIST");
                                 }
-                            } else {
-                                fail("COULD NOT GET GIFTS FROM USERS-GIFTS DOC FOR JIM");
+                            } catch (ClassCastException e){
+                                fail("GIFTS IS NOT AN ARRAY LIST");
                             }
                         } else {
-                            fail("FAILED TO FIND JIMS GIFTS DOCUMENT");
+                            fail("COULD NOT GET GIFTS FROM USERS-GIFTS DOC FOR JIM");
                         }
+                    } else {
+                        fail("FAILED TO FIND JIMS GIFTS DOCUMENT");
                     }
                 });
 
@@ -333,26 +324,23 @@ public class BasicSendGiftTest {
 
         DocumentReference jimsGift = db.collection("gifts-test").document(jimsGiftId);
         jimsGift.get()
-                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                if (task.isSuccessful() && task.getResult().exists()){
-                    DocumentSnapshot document = task.getResult();
-                    Double amount = document.getDouble("amount");
-                    String currency = document.getString("currency");
-                    String senderUid = document.getString("senderUid");
-                    if (amount != null & currency != null & senderUid != null){
-                        assertEquals(amount,50.0,0.0);
-                        assertEquals(currency,"SHIL");
-                        assertEquals(senderUid,"ROtiCeFTuIZ3xNOhEweThG3htXj1");
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult().exists()){
+                        DocumentSnapshot document = task.getResult();
+                        Double amount = document.getDouble("amount");
+                        String currency = document.getString("currency");
+                        String senderUid = document.getString("senderUid");
+                        if (amount != null & currency != null & senderUid != null){
+                            assertEquals(amount,50.0,0.0);
+                            assertEquals(currency,"SHIL");
+                            assertEquals(senderUid,"ROtiCeFTuIZ3xNOhEweThG3htXj1");
+                        } else {
+                            fail("AT LEAST ONE OF THE GIFTS FIELDS DOES NOT EXIST");
+                        }
                     } else {
-                        fail("AT LEAST ONE OF THE GIFTS FIELDS DOES NOT EXIST");
+                        fail("FAILED TO GET JIMS GIFT");
                     }
-                } else {
-                    fail("FAILED TO GET JIMS GIFT");
-                }
-            }
-        });
+                });
 
         try {
             Thread.sleep(5000);
