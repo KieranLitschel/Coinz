@@ -1,6 +1,8 @@
 package com.litschel.kieran.coinz;
 
 
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -51,7 +53,21 @@ public class BasicSendGiftTest {
     private String jimsGiftId = "";
 
     @Rule
-    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
+    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<MainActivity>(MainActivity.class) {
+        @Override
+        protected void beforeActivityLaunched() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.beforeActivityLaunched();
+        }
+
+        @Override
+        protected void afterActivityFinished() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.afterActivityFinished();
+        }
+    };
 
     @Rule
     public GrantPermissionRule mGrantPermissionRule =
@@ -347,29 +363,6 @@ public class BasicSendGiftTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-        // Log out of the app to preprare for the next test
-
-        ViewInteraction appCompatImageButton2 = onView(
-                allOf(withContentDescription("Navigate up"),
-                        childAtPosition(
-                                allOf(withId(R.id.toolbar),
-                                        childAtPosition(
-                                                withId(R.id.content_frame),
-                                                2)),
-                                1),
-                        isDisplayed()));
-        appCompatImageButton2.perform(click());
-
-        ViewInteraction navigationMenuItemView2 = onView(
-                allOf(childAtPosition(
-                        allOf(withId(R.id.design_navigation_view),
-                                childAtPosition(
-                                        withId(R.id.nav_view),
-                                        0)),
-                        4),
-                        isDisplayed()));
-        navigationMenuItemView2.perform(click());
     }
 
     private static Matcher<View> childAtPosition(

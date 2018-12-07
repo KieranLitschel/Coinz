@@ -1,5 +1,8 @@
 package com.litschel.kieran.coinz;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -18,6 +21,14 @@ import static org.junit.Assert.fail;
 // This is a set of database methods that we use to support testing the database
 
 class DatabaseMethods {
+
+    // Used to wipe the settings
+    static void resetSettings(Context context){
+        SharedPreferences settings = context.getSharedPreferences("SettingsFile", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.clear();
+        editor.commit();
+    }
 
     // Resets the test database to the default state
 

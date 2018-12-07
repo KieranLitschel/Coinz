@@ -1,6 +1,8 @@
 package com.litschel.kieran.coinz;
 
 
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -39,7 +41,21 @@ import static org.hamcrest.Matchers.is;
 public class BasicLeaderboardTest {
 
     @Rule
-    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
+    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<MainActivity>(MainActivity.class) {
+        @Override
+        protected void beforeActivityLaunched() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.beforeActivityLaunched();
+        }
+
+        @Override
+        protected void afterActivityFinished() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.afterActivityFinished();
+        }
+    };
 
     @Rule
     public GrantPermissionRule mGrantPermissionRule =
@@ -1289,29 +1305,6 @@ public class BasicLeaderboardTest {
                                 2),
                         isDisplayed()));
         textView96.check(matches(withText("7.794 K")));
-
-        // Log out of the app to preprare for the next test
-
-        ViewInteraction appCompatImageButton3 = onView(
-                allOf(withContentDescription("Navigate up"),
-                        childAtPosition(
-                                allOf(withId(R.id.toolbar),
-                                        childAtPosition(
-                                                withId(R.id.content_frame),
-                                                2)),
-                                1),
-                        isDisplayed()));
-        appCompatImageButton3.perform(click());
-
-        ViewInteraction navigationMenuItemView3 = onView(
-                allOf(childAtPosition(
-                        allOf(withId(R.id.design_navigation_view),
-                                childAtPosition(
-                                        withId(R.id.nav_view),
-                                        0)),
-                        4),
-                        isDisplayed()));
-        navigationMenuItemView3.perform(click());
     }
 
     private static Matcher<View> childAtPosition(

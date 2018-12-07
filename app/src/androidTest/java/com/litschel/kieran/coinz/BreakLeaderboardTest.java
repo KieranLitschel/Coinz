@@ -1,6 +1,8 @@
 package com.litschel.kieran.coinz;
 
 
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -39,7 +41,21 @@ import static org.hamcrest.Matchers.is;
 public class BreakLeaderboardTest {
 
     @Rule
-    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
+    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<MainActivity>(MainActivity.class) {
+        @Override
+        protected void beforeActivityLaunched() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.beforeActivityLaunched();
+        }
+
+        @Override
+        protected void afterActivityFinished() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.afterActivityFinished();
+        }
+    };
 
     @Rule
     public GrantPermissionRule mGrantPermissionRule =
@@ -211,40 +227,6 @@ public class BreakLeaderboardTest {
                                 1),
                         isDisplayed()));
         textView3.check(matches(withText("New users must create a username in order to view the leaderboard.")));
-
-        // Hit cancel
-
-        ViewInteraction appCompatButton4 = onView(
-                allOf(withId(android.R.id.button2), withText("Cancel"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                2)));
-        appCompatButton4.perform(scrollTo(), click());
-
-        // Log out of the app to preprare for the next test
-
-        ViewInteraction appCompatImageButton2 = onView(
-                allOf(withContentDescription("Navigate up"),
-                        childAtPosition(
-                                allOf(withId(R.id.toolbar),
-                                        childAtPosition(
-                                                withId(R.id.content_frame),
-                                                2)),
-                                1),
-                        isDisplayed()));
-        appCompatImageButton2.perform(click());
-
-        ViewInteraction navigationMenuItemView2 = onView(
-                allOf(childAtPosition(
-                        allOf(withId(R.id.design_navigation_view),
-                                childAtPosition(
-                                        withId(R.id.nav_view),
-                                        0)),
-                        4),
-                        isDisplayed()));
-        navigationMenuItemView2.perform(click());
     }
 
     private static Matcher<View> childAtPosition(

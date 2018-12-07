@@ -1,6 +1,8 @@
 package com.litschel.kieran.coinz;
 
 
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.ViewInteraction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -41,7 +43,21 @@ import static org.hamcrest.Matchers.is;
 public class OfflineDayChangeTest {
 
     @Rule
-    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<>(MainActivity.class);
+    public ActivityTestRule<MainActivity> mActivityTestRule = new ActivityTestRule<MainActivity>(MainActivity.class) {
+        @Override
+        protected void beforeActivityLaunched() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.beforeActivityLaunched();
+        }
+
+        @Override
+        protected void afterActivityFinished() {
+            Context context = InstrumentationRegistry.getTargetContext();
+            DatabaseMethods.resetSettings(context);
+            super.afterActivityFinished();
+        }
+    };
 
     @Rule
     public GrantPermissionRule mGrantPermissionRule =
@@ -339,38 +355,6 @@ public class OfflineDayChangeTest {
                                 2),
                         isDisplayed()));
         textView4.check(matches(withText("Exchange rate:\n32.167432074332574")));
-
-        // Exit the exchange and log out of the app to preprare for the next test
-
-        ViewInteraction appCompatButton3 = onView(
-                allOf(withId(android.R.id.button2), withText("Cancel"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                2)));
-        appCompatButton3.perform(scrollTo(), click());
-
-        ViewInteraction appCompatImageButton2 = onView(
-                allOf(withContentDescription("Navigate up"),
-                        childAtPosition(
-                                allOf(withId(R.id.toolbar),
-                                        childAtPosition(
-                                                withId(R.id.content_frame),
-                                                2)),
-                                1),
-                        isDisplayed()));
-        appCompatImageButton2.perform(click());
-
-        ViewInteraction navigationMenuItemView2 = onView(
-                allOf(childAtPosition(
-                        allOf(withId(R.id.design_navigation_view),
-                                childAtPosition(
-                                        withId(R.id.nav_view),
-                                        0)),
-                        4),
-                        isDisplayed()));
-        navigationMenuItemView2.perform(click());
     }
 
     private static Matcher<View> childAtPosition(
