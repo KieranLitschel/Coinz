@@ -20,13 +20,24 @@ import static org.junit.Assert.fail;
 
 // This is a set of database methods that we use to support testing the database
 
-class DatabaseMethods {
+class TestSetupMethods {
 
     // Used to wipe the settings
-    static void resetSettings(Context context){
+
+    static void resetSettings(Context context) {
         SharedPreferences settings = context.getSharedPreferences("SettingsFile", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = settings.edit();
         editor.clear();
+        editor.commit();
+    }
+
+    // This sets up tester1 as logged in in the config file, preventing us from having to log in at
+    // the start of each test which is a waste of time
+
+    static void setTester1LoggedIn(Context context){
+        SharedPreferences settings = context.getSharedPreferences("SettingsFile", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("uid","ROtiCeFTuIZ3xNOhEweThG3htXj1");
         editor.commit();
     }
 
@@ -134,6 +145,12 @@ class DatabaseMethods {
         }
     }
 
+    // This sets up tester 1 in the test database with default values
+
+    static void setupDefaultTester1InDB() {
+        setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "", new String[][]{});
+    }
+
     // Modified version of send gift to recipient from GiftCryptoDialogFragment
 
     // We suppress the same parameter warning as it makes sense to keep them flexible as future tests
@@ -173,14 +190,14 @@ class DatabaseMethods {
             transaction.set(giftRef, giftInfo);
 
             Object giftsObj = recipientGiftSnapshot.get("gifts");
-            if (giftsObj != null){
+            if (giftsObj != null) {
                 try {
                     // We suppress warning here as impossible to fail, but IDE gives a warning falsely about unchecked cast
                     @SuppressWarnings("unchecked")
                     List<String> giftsList = (List<String>) giftsObj;
                     giftsList.add(giftRef.getId());
                     transaction.update(recipientGiftRef, "gifts", giftsList);
-                } catch (ClassCastException e){
+                } catch (ClassCastException e) {
                     fail("GIFTS IS NOT AN ARRAY LIST");
                 }
             } else {

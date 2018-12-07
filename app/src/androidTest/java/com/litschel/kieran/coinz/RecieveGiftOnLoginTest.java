@@ -15,7 +15,6 @@ import android.view.ViewParent;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,8 +30,8 @@ import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.is;
 
 // Test whether the app handles receiving a gift on login correctly
 
@@ -45,14 +44,19 @@ public class RecieveGiftOnLoginTest {
         @Override
         protected void beforeActivityLaunched() {
             Context context = InstrumentationRegistry.getTargetContext();
-            DatabaseMethods.resetSettings(context);
+            TestSetupMethods.resetSettings(context);
+            TestSetupMethods.resetTestDB();
+            TestSetupMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
+            TestSetupMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{
+                    new String[]{"SHIL", "100"}});
+            TestSetupMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",100.0);
             super.beforeActivityLaunched();
         }
 
         @Override
         protected void afterActivityFinished() {
             Context context = InstrumentationRegistry.getTargetContext();
-            DatabaseMethods.resetSettings(context);
+            TestSetupMethods.resetSettings(context);
             super.afterActivityFinished();
         }
     };
@@ -62,17 +66,12 @@ public class RecieveGiftOnLoginTest {
             GrantPermissionRule.grant(
                     "android.permission.ACCESS_FINE_LOCATION");
 
-    @Before
-    public void beforeTest(){
-        DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
-        DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{
-                new String[]{"SHIL", "100"}});
-        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",100.0);
-    }
-
     @Test
     public void recieveGiftOnLoginTest() {
+
+        // We login using the standard way here instead of our sped up version as how a gift is handled
+        // on login is dependant on code executed in the login procedure
+
         // Login
 
         // Added a sleep statement to match the app's execution delay.

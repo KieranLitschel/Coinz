@@ -15,24 +15,18 @@ import android.view.ViewParent;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
-import static android.support.test.espresso.action.ViewActions.replaceText;
-import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.is;
 
 // Tests the leaderboard under expected use
 
@@ -45,14 +39,32 @@ public class BasicLeaderboardTest {
         @Override
         protected void beforeActivityLaunched() {
             Context context = InstrumentationRegistry.getTargetContext();
-            DatabaseMethods.resetSettings(context);
+            TestSetupMethods.resetSettings(context);
+            TestSetupMethods.setTester1LoggedIn(context);
+            TestSetupMethods.resetTestDB();
+            // Setup the first 5 users for the leaderboard
+            TestSetupMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "Alex", new String[][]{
+                    new String[]{"GOLD", "10"}
+            });
+            TestSetupMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "Ben", new String[][]{
+                    new String[]{"GOLD", "654646"}
+            });
+            TestSetupMethods.setupUser("dUfwCZBX2EW1QIHwHkhNZoqOWf52", "Charlie", new String[][]{
+                    new String[]{"GOLD", "21523353"}
+            });
+            TestSetupMethods.setupUser("ceFCMjlFOhXqrAHyuhKwEZGUUHn1", "Daniel", new String[][]{
+                    new String[]{"GOLD", "446448"}
+            });
+            TestSetupMethods.setupUser("7SaETL8QlXUQtgJMaJb9xO5JVAY2", "Ellie", new String[][]{
+                    new String[]{"GOLD", "7794"}
+            });
             super.beforeActivityLaunched();
         }
 
         @Override
         protected void afterActivityFinished() {
             Context context = InstrumentationRegistry.getTargetContext();
-            DatabaseMethods.resetSettings(context);
+            TestSetupMethods.resetSettings(context);
             super.afterActivityFinished();
         }
     };
@@ -62,115 +74,9 @@ public class BasicLeaderboardTest {
             GrantPermissionRule.grant(
                     "android.permission.ACCESS_FINE_LOCATION");
 
-    @Before
-    public void beforeTest(){
-        DatabaseMethods.resetTestDB();
-        // Setup the first 5 users for the leaderboard
-        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "Alex", new String[][]{
-                new String[]{"GOLD", "10"}
-        });
-        DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "Ben", new String[][]{
-                new String[]{"GOLD", "654646"}
-        });
-        DatabaseMethods.setupUser("dUfwCZBX2EW1QIHwHkhNZoqOWf52", "Charlie", new String[][]{
-                new String[]{"GOLD", "21523353"}
-        });
-        DatabaseMethods.setupUser("ceFCMjlFOhXqrAHyuhKwEZGUUHn1", "Daniel", new String[][]{
-                new String[]{"GOLD", "446448"}
-        });
-        DatabaseMethods.setupUser("7SaETL8QlXUQtgJMaJb9xO5JVAY2", "Ellie", new String[][]{
-                new String[]{"GOLD", "7794"}
-        });
-    }
-
     @Test
     public void basicLeaderboardTest() {
-        // Login
 
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(3500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditText = onView(
-                allOf(withId(R.id.email),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.email_layout),
-                                        0),
-                                0)));
-        textInputEditText.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditText2 = onView(
-                allOf(withId(R.id.email),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.email_layout),
-                                        0),
-                                0)));
-        textInputEditText2.perform(scrollTo(), replaceText("tester1@coinz.litschel.com"), closeSoftKeyboard());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction appCompatButton = onView(
-                allOf(withId(R.id.button_next), withText("Next"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                1)));
-        appCompatButton.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(3500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditText3 = onView(
-                allOf(withId(R.id.password),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.password_layout),
-                                        0),
-                                0)));
-        textInputEditText3.perform(scrollTo(), replaceText("test1234"), closeSoftKeyboard());
-
-        ViewInteraction appCompatButton2 = onView(
-                allOf(withId(R.id.button_done), withText("Sign in"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                4)));
-        appCompatButton2.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
             Thread.sleep(7500);
         } catch (InterruptedException e) {
@@ -419,19 +325,19 @@ public class BasicLeaderboardTest {
 
         // Add users to fill up the leaderboard
 
-        DatabaseMethods.setupUser("VLtSELSe31cLPvNsvF692VyO5Py1", "Fiona", new String[][]{
+        TestSetupMethods.setupUser("VLtSELSe31cLPvNsvF692VyO5Py1", "Fiona", new String[][]{
                 new String[]{"GOLD", "465465235289"}
         });
-        DatabaseMethods.setupUser("d9X1huNfATNk0tsDM8T8AWLM4qb2", "Georgia", new String[][]{
+        TestSetupMethods.setupUser("d9X1huNfATNk0tsDM8T8AWLM4qb2", "Georgia", new String[][]{
                 new String[]{"GOLD", "4545677"}
         });
-        DatabaseMethods.setupUser("nXt3iQm2uOhpwtAPocgd2ii9imi2", "Harriet", new String[][]{
+        TestSetupMethods.setupUser("nXt3iQm2uOhpwtAPocgd2ii9imi2", "Harriet", new String[][]{
                 new String[]{"GOLD", "798465"}
         });
-        DatabaseMethods.setupUser("GwNuEg0pEUQvpuaBXiCU5uWip0G2", "India", new String[][]{
+        TestSetupMethods.setupUser("GwNuEg0pEUQvpuaBXiCU5uWip0G2", "India", new String[][]{
                 new String[]{"GOLD", "7846548"}
         });
-        DatabaseMethods.setupUser("9dAfz9WWB2SWalZdcHmLhjrGdvT2", "James", new String[][]{
+        TestSetupMethods.setupUser("9dAfz9WWB2SWalZdcHmLhjrGdvT2", "James", new String[][]{
                 new String[]{"GOLD", "3435486564"}
         });
 
@@ -831,7 +737,7 @@ public class BasicLeaderboardTest {
 
         // Add another user to push Alex (tester 1 off the leaderboard)
 
-        DatabaseMethods.setupUser("EdrUWa2aEjNP0PAnyzi34AZRKGG3", "Kyle", new String[][]{
+        TestSetupMethods.setupUser("EdrUWa2aEjNP0PAnyzi34AZRKGG3", "Kyle", new String[][]{
                 new String[]{"GOLD", "98798546547"}
         });
 

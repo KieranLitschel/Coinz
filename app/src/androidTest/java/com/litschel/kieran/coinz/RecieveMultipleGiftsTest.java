@@ -15,24 +15,18 @@ import android.view.ViewParent;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.action.ViewActions.closeSoftKeyboard;
-import static android.support.test.espresso.action.ViewActions.replaceText;
-import static android.support.test.espresso.action.ViewActions.scrollTo;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.is;
 
 // Test whether the gift handler is set back up correctly after receiving a gift
 
@@ -45,14 +39,19 @@ public class RecieveMultipleGiftsTest {
         @Override
         protected void beforeActivityLaunched() {
             Context context = InstrumentationRegistry.getTargetContext();
-            DatabaseMethods.resetSettings(context);
+            TestSetupMethods.resetSettings(context);
+            TestSetupMethods.setTester1LoggedIn(context);
+            TestSetupMethods.resetTestDB();
+            TestSetupMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
+            TestSetupMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{
+                    new String[]{"SHIL", "100"}});
             super.beforeActivityLaunched();
         }
 
         @Override
         protected void afterActivityFinished() {
             Context context = InstrumentationRegistry.getTargetContext();
-            DatabaseMethods.resetSettings(context);
+            TestSetupMethods.resetSettings(context);
             super.afterActivityFinished();
         }
     };
@@ -62,102 +61,9 @@ public class RecieveMultipleGiftsTest {
             GrantPermissionRule.grant(
                     "android.permission.ACCESS_FINE_LOCATION");
 
-    @Before
-    public void beforeTest(){
-        DatabaseMethods.resetTestDB();
-        DatabaseMethods.setupUser("ROtiCeFTuIZ3xNOhEweThG3htXj1", "bob", new String[][]{});
-        DatabaseMethods.setupUser("8SpoGV9JFlXKlIiuAXkQ22PB0MF3", "jim", new String[][]{
-                new String[]{"SHIL", "100"}});
-    }
-
     @Test
     public void receiveMultipleGiftsTest() {
-        // Login
 
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(3500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditText = onView(
-                allOf(withId(R.id.email),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.email_layout),
-                                        0),
-                                0)));
-        textInputEditText.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditText2 = onView(
-                allOf(withId(R.id.email),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.email_layout),
-                                        0),
-                                0)));
-        textInputEditText2.perform(scrollTo(), replaceText("tester1@coinz.litschel.com"), closeSoftKeyboard());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction appCompatButton = onView(
-                allOf(withId(R.id.button_next), withText("Next"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                1)));
-        appCompatButton.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
-        try {
-            Thread.sleep(3500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        ViewInteraction textInputEditText3 = onView(
-                allOf(withId(R.id.password),
-                        childAtPosition(
-                                childAtPosition(
-                                        withId(R.id.password_layout),
-                                        0),
-                                0)));
-        textInputEditText3.perform(scrollTo(), replaceText("test1234"), closeSoftKeyboard());
-
-        ViewInteraction appCompatButton2 = onView(
-                allOf(withId(R.id.button_done), withText("Sign in"),
-                        childAtPosition(
-                                childAtPosition(
-                                        withClassName(is("android.widget.ScrollView")),
-                                        0),
-                                4)));
-        appCompatButton2.perform(scrollTo(), click());
-
-        // Added a sleep statement to match the app's execution delay.
-        // The recommended way to handle such scenarios is to use Espresso idling resources:
-        // https://google.github.io/android-testing-support-library/docs/espresso/idling-resource/index.html
         try {
             Thread.sleep(7500);
         } catch (InterruptedException e) {
@@ -189,7 +95,7 @@ public class RecieveMultipleGiftsTest {
 
         // Simulate jim sending a gift to bob
 
-        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",50.0);
+        TestSetupMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",50.0);
 
         try {
             Thread.sleep(5000);
@@ -212,7 +118,7 @@ public class RecieveMultipleGiftsTest {
 
         // Simulate jim sending another gift to bob
 
-        DatabaseMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",50.0);
+        TestSetupMethods.sendGiftToRecipient("8SpoGV9JFlXKlIiuAXkQ22PB0MF3","ROtiCeFTuIZ3xNOhEweThG3htXj1","SHIL",50.0);
 
         try {
             Thread.sleep(5000);
