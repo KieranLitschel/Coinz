@@ -72,7 +72,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private MapView mapView;
     private MapboxMap map;
     private ExecutorService mapUpdateExecutor;
-    private StampedLock mapUpdateLock;
+    private StampedLock settingsWriteLock;
     private SharedPreferences settings;
     private FirebaseFirestore db;
     private ArrayList<MarkerOptions> markerOpts;
@@ -90,7 +90,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         mainActivity = ((MainActivity) getActivity());
         settings = ((MainActivity) getActivity()).settings;
         db = ((MainActivity) getActivity()).db;
-        mapUpdateLock = ((MainActivity) getActivity()).mapUpdateLock;
+        settingsWriteLock = ((MainActivity) getActivity()).settingsWriteLock;
         users = ((MainActivity) getActivity()).users;
     }
 
@@ -173,7 +173,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             }
         } else {
             System.out.println("ON START WAITING FOR LOCK");
-            long lockStamp = mapUpdateLock.writeLock();
+            long lockStamp = settingsWriteLock.writeLock();
             System.out.println("ON START ACQUIRED LOCK");
             updateMarkers(lockStamp);
             checkForMapUpdate();
@@ -257,7 +257,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
         // Use an executor to avoid having to create new threads which is expensive
-        mapUpdateExecutor.submit(new RemoveMarkersTask(this, markerIds, mapUpdateLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
+        mapUpdateExecutor.submit(new RemoveMarkersTask(this, markerIds, settingsWriteLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
     }
 
     private void setToUpdateAtMidnight() {
@@ -284,7 +284,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void checkForMapUpdate() {
         if (settings != null) {
             System.out.println("CHECKING IF MAP UPDATE REQUIRED");
-            mapUpdateExecutor.submit(new MapUpdateTask(((MainActivity) getActivity()),this, mapUpdateLock, settings));
+            mapUpdateExecutor.submit(new MapUpdateTask(((MainActivity) getActivity()),this, settingsWriteLock, settings));
         }
     }
 
@@ -317,7 +317,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         System.out.println("DOWNLOADING FROM URL: " + url);
         if (!((MainActivity) getActivity()).isNetworkAvailable()) {
             ((MainActivity) getActivity()).waitingToUpdateMap = true;
-            mapUpdateLock.unlockWrite(lockStamp);
+            settingsWriteLock.unlockWrite(lockStamp);
             // Similarly to for map.clear, as this changes a UI element we must call it on the UI thread
             getActivity().runOnUiThread(new Runnable() {
                 @Override
@@ -327,7 +327,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 }
             });
         } else {
-            new DownloadMapTask(this, mapUpdateLock, lockStamp).execute(url);
+            new DownloadMapTask(this, settingsWriteLock, lockStamp).execute(url);
         }
     }
 
@@ -409,7 +409,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         editor.apply();
                         if (!settings.getString("map", "").equals("")) {
                             System.out.println("ON START WAITING FOR LOCK");
-                            long lockStamp = mapUpdateLock.writeLock();
+                            long lockStamp = settingsWriteLock.writeLock();
                             System.out.println("ON START ACQUIRED LOCK");
                             updateMarkers(lockStamp);
                         }
@@ -459,7 +459,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e.getMessage());
-                        mapUpdateLock.unlockWrite(lockStamp);
+                        settingsWriteLock.unlockWrite(lockStamp);
                         System.out.println("ON MAP DOWNLOADED RELEASED LOCK");
                     }
                 });
@@ -500,7 +500,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 e.printStackTrace();
             }
         }
-        mapUpdateLock.unlockWrite(lockStamp);
+        settingsWriteLock.unlockWrite(lockStamp);
         System.out.println("UPDATE MARKERS RELEASED LOCK");
     }
 
@@ -573,7 +573,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                             SharedPreferences.Editor editor = settings.edit();
                             editor.putString("map", mapJSONString);
                             editor.apply();
-                            mapUpdateLock.unlockWrite(lockStamp);
+                            settingsWriteLock.unlockWrite(lockStamp);
                             System.out.println("ON COINS UPDATED RELEASED LOCK");
                         }
                     })
@@ -581,7 +581,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         @Override
                         public void onFailure(@NonNull Exception e) {
                             System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
-                            mapUpdateLock.unlockWrite(lockStamp);
+                            settingsWriteLock.unlockWrite(lockStamp);
                             System.out.println("ON COINS UPDATED RELEASED LOCK");
                         }
                     });
@@ -590,7 +590,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             SharedPreferences.Editor editor = settings.edit();
             editor.putString("map", mapJSONString);
             editor.apply();
-            mapUpdateLock.unlockWrite(lockStamp);
+            settingsWriteLock.unlockWrite(lockStamp);
             System.out.println("ON COINS UPDATED RELEASED LOCK");
         }
     }

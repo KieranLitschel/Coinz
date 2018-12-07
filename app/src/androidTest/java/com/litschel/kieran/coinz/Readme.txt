@@ -9,7 +9,11 @@ Some important things to note before running the tests:
    can get quite laggy if it has been running for a while, which can intefere with the timing of the
    espresso tests causing them to fail.
 
-3) These tests rely on an uninterrupted internet connection and Firebase executing queries and updates
+3) I've noticed when running tests on my own system if it's under load from another process, this can
+   slow down the emulator, which can causes tests to fail, so I wouldn't recommend running anything else
+   intensive in the background whilst running tests.
+
+4) These tests rely on an uninterrupted internet connection and Firebase executing queries and updates
    within 5 seconds. Naturally in rare cases one of these assumptions could be false, which would cause the
    test to fail. I've run the tests repeatedly and found no issues with them, so if a test does fail
    it is probably down to one of the two assumptions not being true. So if a test fails I'd recommend

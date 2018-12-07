@@ -20,7 +20,7 @@ public class ExecuteTradeTask implements Runnable {
     private ExecuteTradeTaskCallback context;
     private MainActivity activity;
     private FirebaseFirestore db;
-    private StampedLock mapUpdateLock;
+    private StampedLock settingsWriteLock;
     private SharedPreferences settings;
     private HashMap<String, Double> currencyValues;
     private String currency;
@@ -33,7 +33,7 @@ public class ExecuteTradeTask implements Runnable {
         this.context = context;
         this.activity = activity;
         this.db = db;
-        this.mapUpdateLock = activity.mapUpdateLock;
+        this.settingsWriteLock = activity.settingsWriteLock;
         this.settings = settings;
         this.currencyValues = currencyValues;
         this.currency = currency;
@@ -45,7 +45,7 @@ public class ExecuteTradeTask implements Runnable {
 
     @Override
     public void run() {
-        long lockStamp = mapUpdateLock.writeLock();
+        long lockStamp = settingsWriteLock.writeLock();
         currencyValues.put(currency, currencyValues.get(currency) - tradeAmount);
         currencyValues.put("GOLD", currencyValues.get("GOLD") + tradeAmount * exchangeRate);
         coinsRemainingToday -= tradeAmount;
@@ -75,14 +75,14 @@ public class ExecuteTradeTask implements Runnable {
                 @Override
                 public void onSuccess(Void aVoid) {
                     System.out.println("Succeeded in updating database post trade");
-                    mapUpdateLock.unlockWrite(lockStamp);
+                    settingsWriteLock.unlockWrite(lockStamp);
                     context.onTradeComplete(coinsRemainingToday);
                 }
             }).addOnFailureListener(new OnFailureListener() {
                 @Override
                 public void onFailure(@NonNull Exception e) {
                     System.out.println("Failed to update database post trade with exception " + e);
-                    mapUpdateLock.unlockWrite(lockStamp);
+                    settingsWriteLock.unlockWrite(lockStamp);
                     context.onTradeComplete(coinsRemainingToday);
                 }
             });
@@ -109,7 +109,7 @@ public class ExecuteTradeTask implements Runnable {
             if (!activity.waitingToUpdateCoins){
                 activity.setToUpdateCoinsOnInternet();
             }
-            mapUpdateLock.unlockWrite(lockStamp);
+            settingsWriteLock.unlockWrite(lockStamp);
             context.onTradeComplete(coinsRemainingToday);
         }
     }

@@ -253,7 +253,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                 MainActivity mainActivity = ((MainActivity) getActivity());
                 HashMap<String, Double> currencyChanges = new HashMap<>();
                 currencyChanges.put(selectedCurrency, -giftAmount);
-                mainActivity.coinsUpdateExecutor.submit(new CoinsUpdateTask(mainActivity, mainActivity.mapUpdateLock, mainActivity.settings, currencyChanges));
+                mainActivity.coinsUpdateExecutor.submit(new CoinsUpdateTask(mainActivity, mainActivity.settingsWriteLock, mainActivity.settings, currencyChanges));
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override

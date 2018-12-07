@@ -25,7 +25,7 @@ import java.util.concurrent.locks.StampedLock;
 
 public class RemoveMarkersTask implements Runnable {
     private RemoveMarkersCallback context;
-    private StampedLock mapUpdateLock;
+    private StampedLock settingsWriteLock;
     private FirebaseFirestore db;
     private String uid;
     private ArrayList<MarkerOptions> markersToRemove;
@@ -34,10 +34,10 @@ public class RemoveMarkersTask implements Runnable {
     private String users;
     private HashMap<MarkerOptions, String> markerIds;
 
-    RemoveMarkersTask(RemoveMarkersCallback context, HashMap<MarkerOptions, String> markerIds, StampedLock mapUpdateLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<MarkerOptions> markersToRemove, SharedPreferences settings) {
+    RemoveMarkersTask(RemoveMarkersCallback context, HashMap<MarkerOptions, String> markerIds, StampedLock settingsWriteLock, MainActivity activity, FirebaseFirestore db, String uid, ArrayList<MarkerOptions> markersToRemove, SharedPreferences settings) {
         super();
         this.context = context;
-        this.mapUpdateLock = mapUpdateLock;
+        this.settingsWriteLock = settingsWriteLock;
         this.db = db;
         this.uid = uid;
         this.markersToRemove = markersToRemove;
@@ -49,7 +49,7 @@ public class RemoveMarkersTask implements Runnable {
 
     public void run() {
         System.out.println("REMOVE MARKER TASK WAITING FOR LOCK");
-        final long lockStamp = mapUpdateLock.writeLock();
+        final long lockStamp = settingsWriteLock.writeLock();
         System.out.println("REMOVE MARKER TASK ACQUIRED LOCK");
 
         String mapJSONString = settings.getString("map", "");
@@ -152,7 +152,7 @@ public class RemoveMarkersTask implements Runnable {
                 context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
             }
         } else {
-            mapUpdateLock.unlockWrite(lockStamp);
+            settingsWriteLock.unlockWrite(lockStamp);
             System.out.println("REMOVE MARKER TASK RELEASED LOCK");
         }
     }

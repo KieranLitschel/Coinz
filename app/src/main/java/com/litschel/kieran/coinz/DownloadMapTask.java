@@ -14,13 +14,13 @@ import java.util.concurrent.locks.StampedLock;
 public class DownloadMapTask extends AsyncTask<String, Void, String> {
     private MapDownloadedCallback context;
     private long lockStamp;
-    private StampedLock mapUpdateLock;
+    private StampedLock settingsWriteLock;
 
-    DownloadMapTask(MapDownloadedCallback context, StampedLock mapUpdateLock, long lockStamp) {
+    DownloadMapTask(MapDownloadedCallback context, StampedLock settingsWriteLock, long lockStamp) {
         super();
         this.context = context;
         this.lockStamp = lockStamp;
-        this.mapUpdateLock = mapUpdateLock;
+        this.settingsWriteLock = settingsWriteLock;
     }
 
     @Override
@@ -28,7 +28,7 @@ public class DownloadMapTask extends AsyncTask<String, Void, String> {
         try {
             return loadFileFromNetwork(urls[0]);
         } catch (IOException e) {
-            mapUpdateLock.unlockWrite(lockStamp);
+            settingsWriteLock.unlockWrite(lockStamp);
             return "FAILED";
         }
     }
@@ -81,7 +81,6 @@ class DownloadCompleteRunner {
             context.onMapDownloaded(mapJSONString, lockStamp);
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
-
         }
     }
 }

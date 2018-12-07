@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private NavigationView navigationView;
     private FragmentManager fragmentManager;
     private Fragment currentFragment = null;
-    public StampedLock mapUpdateLock = new StampedLock();
+    public StampedLock settingsWriteLock = new StampedLock();
     public Boolean waitingToUpdateCoins = false;
     public ExecutorService coinsUpdateExecutor;
     private ListenerRegistration userGiftListener;
@@ -130,7 +130,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             }
             if (waitingToUpdateCoins) {
                 waitingToUpdateCoins = false;
-                coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, mapUpdateLock, uid));
+                coinsUpdateExecutor.submit(new CoinsUpdateWithDeltaTask(users, activity, db, settings, settingsWriteLock, uid));
             }
         } else {
             settingUpUserGiftListener = false;
@@ -498,7 +498,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 Toast.makeText(activity, "Progress offline has been updated in the cloud.", Toast.LENGTH_LONG).show();
             }
         });
-        mapUpdateLock.unlockWrite(lockStamp);
+        settingsWriteLock.unlockWrite(lockStamp);
     }
 
     private void showGifts() {
@@ -576,7 +576,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                                 }
                                             }
                                             if (!justLoggedIn) {
-                                                coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, mapUpdateLock, settings, currencyChanges));
+                                                coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, settingsWriteLock, settings, currencyChanges));
                                             }
                                         }
                                         if (justLoggedIn){
