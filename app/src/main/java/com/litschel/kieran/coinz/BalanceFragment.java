@@ -31,6 +31,9 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     private String uid;
     private final String[] currencies = new String[]{"GOLD", "PENY", "DOLR", "SHIL", "QUID"};
     private final String[] cryptoCurrencies = new String[]{"PENY", "DOLR", "SHIL", "QUID"};
+    // We suppress this warning as it is being shown as the IDE does not pick up on entries being
+    // added to currentTexts on its declaration
+    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     private HashMap<String, TextView> currencyTexts;
     private HashMap<String, Double> currencyValues;
     private HashMap<String, Double> currencyRates;
@@ -89,13 +92,12 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         // When this button is pressed it will bring up a dialog for the user to exchange crypto
         // with the bank
         FloatingActionButton exchangeCryptoFAB = view.findViewById(R.id.exchangeCryptoBtn);
-        exchangeCryptoFAB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // If the map is empty then we don't have exchange rates for today
-                if (!mapJSONString.equals("")) {
-                    // We don't want to create a new trade while another is running, as this could allow the user to exchange coins they don't have
-                    if (!tradeExecuting) {
+        exchangeCryptoFAB.setOnClickListener(view1 -> {
+            // If the map is empty then we don't have exchange rates for today
+            if (!mapJSONString.equals("")) {
+                // We don't want to create a new trade while another is running, as this could allow the user to exchange coins they don't have
+                if (!tradeExecuting) {
+                    if (getActivity() != null) {
                         // We setup and display the dialog for exchanging currency with the bank
                         DialogFragment newFragment = new ExchangeCryptoDialogFragment();
                         Bundle args = new Bundle();
@@ -108,44 +110,50 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                         newFragment.setTargetFragment(fragment, DIALOG_FRAGMENT);
                         newFragment.show(getActivity().getSupportFragmentManager(), "exchange_crypto_dialog");
                     } else {
-                        Toast.makeText(activity, "Previous exchange being finalized, please wait.", Toast.LENGTH_LONG).show();
+                        System.out.println("ACTIVITY WAS NULL WHEN EXPECTED NON-NULL");
                     }
                 } else {
-                    Toast.makeText(activity, "Exchanging coins is unavailable as today's exchange rates have not been downloaded", Toast.LENGTH_LONG).show();
+                    Toast.makeText(activity, "Previous exchange being finalized, please wait.", Toast.LENGTH_LONG).show();
                 }
+            } else {
+                Toast.makeText(activity, "Exchanging coins is unavailable as today's exchange rates have not been downloaded", Toast.LENGTH_LONG).show();
             }
         });
 
         // When this button is pressed it'll bring up a dialog for the user to send crypto to other
         // players
         FloatingActionButton giftCryptoFAB = view.findViewById(R.id.giftCryptoBtn);
-        giftCryptoFAB.setOnClickListener(new View.OnClickListener() {
-
-            @Override
-            public void onClick(View view) {
-                // Can only send gifts if there is a network connection, so first we check that
-                if (((MainActivity) getActivity()).isNetworkAvailable()) {
-                    String username = settings.getString("username", "");
-                    // Next we check if the user has set their username, as this is displayed on
-                    // the gift dialog, if they haven't we ask them too create one
-                    if (username.equals("")) {
-                        updateUsernameFragment(username, true);
-                    } else {
-                        // We setup and display the gift dialog
-                        DialogFragment newFragment = new GiftCryptoDialogFragment();
-                        Bundle args = new Bundle();
-                        args.putString("uid", uid);
-                        args.putString("username", username);
-                        for (String currency : cryptoCurrencies) {
-                            args.putDouble(currency + "Val", currencyValues.get(currency));
+        giftCryptoFAB.setOnClickListener(view12 -> {
+            // Can only send gifts if there is a network connection, so first we check that
+            if (getActivity() != null) {
+                if (getActivity().getClass() == MainActivity.class) {
+                    if (((MainActivity) getActivity()).isNetworkAvailable()) {
+                        String username = settings.getString("username", "");
+                        // Next we check if the user has set their username, as this is displayed on
+                        // the gift dialog, if they haven't we ask them too create one
+                        if (username.equals("")) {
+                            createUsernameFragment(username);
+                        } else {
+                            // We setup and display the gift dialog
+                            DialogFragment newFragment = new GiftCryptoDialogFragment();
+                            Bundle args = new Bundle();
+                            args.putString("uid", uid);
+                            args.putString("username", username);
+                            for (String currency : cryptoCurrencies) {
+                                args.putDouble(currency + "Val", currencyValues.get(currency));
+                            }
+                            newFragment.setArguments(args);
+                            newFragment.setTargetFragment(fragment, DIALOG_FRAGMENT);
+                            newFragment.show(getActivity().getSupportFragmentManager(), "gift_crypto_dialog");
                         }
-                        newFragment.setArguments(args);
-                        newFragment.setTargetFragment(fragment, DIALOG_FRAGMENT);
-                        newFragment.show(getActivity().getSupportFragmentManager(), "gift_crypto_dialog");
+                    } else {
+                        Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show();
                     }
                 } else {
-                    Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show();
+                    System.out.println("ACTIVITY CLASS WAS EXPECTED TO BE MAIN ACTIVITY BUT ISN'T");
                 }
+            } else {
+                System.out.println("ACTIVITY WAS NULL WHEN EXPECTED NON-NULL");
             }
         });
     }
@@ -177,8 +185,19 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     // This is called when a trade is submitted through the trade dialog, and it safely updates the
     // values in the database and settings to execute the trade
     public void executeTrade(String currency, double tradeAmount, double exchangeRate) {
-        tradeExecuting = true;
-        new Thread(new ExecuteTradeTask(((MainActivity) getActivity()).users, this, ((MainActivity) getActivity()), db, settings, currencyValues, coinsRemainingToday, currency, tradeAmount, exchangeRate)).start();
+        if (getActivity() != null) {
+            if (getActivity().getClass() == MainActivity.class) {
+                tradeExecuting = true;
+                new Thread(new ExecuteTradeTask(((MainActivity) getActivity()).users, this,
+                        ((MainActivity) getActivity()), db, settings, currencyValues,
+                        coinsRemainingToday, currency, tradeAmount, exchangeRate))
+                        .start();
+            } else {
+                System.out.println("ACTIVITY CLASS WAS EXPECTED TO BE MAIN ACTIVITY BUT ISN'T");
+            }
+        } else {
+            System.out.println("ACTIVITY WAS NULL WHEN EXPECTED NON-NULL");
+        }
     }
 
     // This is called once the trade has completed and updates all the values so those displayed
@@ -197,24 +216,28 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     }
 
     // This creates the dialog for the user to create a new username or update their old one
-    public void updateUsernameFragment(String username, boolean isNewUser) {
+
+    private void createUsernameFragment(String username) {
         // Recheck internet connection here even though checked in gift FAB as this can be called from
         // GiftCryptoDialogFragment too
-        if (((MainActivity) getActivity()).isNetworkAvailable()) {
-            DialogFragment newFragment = new ChangeUsernameDialogFragment();
-            Bundle args = new Bundle();
-            args.putBoolean("isNewUser", isNewUser);
-            args.putString("username", username);
-            args.putString("uid", uid);
-            newFragment.setArguments(args);
-            newFragment.show(getActivity().getSupportFragmentManager(), "create_username_dialog");
-        } else {
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show();
+        if (getActivity() != null) {
+            if (getActivity().getClass() == MainActivity.class) {
+                if (((MainActivity) getActivity()).isNetworkAvailable()) {
+                    DialogFragment newFragment = new ChangeUsernameDialogFragment();
+                    Bundle args = new Bundle();
+                    args.putBoolean("isNewUser", true);
+                    args.putString("username", username);
+                    args.putString("uid", uid);
+                    newFragment.setArguments(args);
+                    newFragment.show(getActivity().getSupportFragmentManager(), "create_username_dialog");
+                } else {
+                    getActivity().runOnUiThread(() -> Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show());
                 }
-            });
+            } else {
+                System.out.println("ACTIVITY CLASS WAS EXPECTED TO BE MAIN ACTIVITY BUT ISN'T");
+            }
+        } else {
+            System.out.println("ACTIVITY WAS NULL WHEN EXPECTED NON-NULL");
         }
     }
 
