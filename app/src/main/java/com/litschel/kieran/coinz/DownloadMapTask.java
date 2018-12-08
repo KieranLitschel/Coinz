@@ -11,6 +11,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.locks.StampedLock;
 
+// Downloads the map
+
 public class DownloadMapTask extends AsyncTask<String, Void, String> {
     private MapDownloadedCallback context;
     private long lockStamp;
@@ -78,6 +80,7 @@ class DownloadCompleteRunner {
 
     static void downloadMapComplete(String mapJSONString, MapDownloadedCallback context, long lockStamp) {
         if (!(mapJSONString.equals("FAILED"))) {
+            // Callsback to the MapFragment that started the async task
             context.onMapDownloaded(mapJSONString, lockStamp);
         } else {
             System.out.println("FAILED TO DOWNLOAD MAP");
