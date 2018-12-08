@@ -163,8 +163,12 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
 
     // Run this whenever we change selectedCurrency or tradeAmount in order to ensure the coins
     // in the edit box are a legal value
+
     // This suppresses the warning to consider using String.format instead of Double.toString, I tried
-    // using locale but it added unecessary decimal places, so I switched back to Double.toString
+    // using locale but it added unecessary decimal places, so I switched back to Double.toString, we
+    // have no real need to use Locale here anyway, as the game is based in a setting in Edinburgh,
+    // so we don't expect to have an international user base
+
     @SuppressLint("SetTextI18n")
     private void updateTradeAmount(String strTradeAmount){
         if (strTradeAmount.equals("")) {
