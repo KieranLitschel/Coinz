@@ -1,5 +1,6 @@
 package com.litschel.kieran.coinz;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -14,16 +15,12 @@ import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Locale;
 import java.util.Objects;
-import java.lang.Math;
 
 public class LeaderboardFragment extends Fragment {
 
@@ -37,6 +34,10 @@ public class LeaderboardFragment extends Fragment {
     private TextView top10Txt;
     private FloatingActionButton refreshFAB;
     private String users;
+
+    private static int compare(UserNdGold t1, UserNdGold t2) {
+        return Double.compare(t2.getGold(), t1.getGold());
+    }
 
     @Override
     public void onAttach(Context context) {
@@ -55,6 +56,9 @@ public class LeaderboardFragment extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+
+        // Put the view components in arrays so we can set them using loops
+
         rows = new TableRow[]{
                 view.findViewById(R.id.YouRow),
                 view.findViewById(R.id.UserHeaderRow),
@@ -103,110 +107,126 @@ public class LeaderboardFragment extends Fragment {
         top10Txt = view.findViewById(R.id.Top10Text);
 
         refreshFAB = view.findViewById(R.id.refreshButton);
-        refreshFAB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                refreshLeaderboard();
-            }
-        });
+        refreshFAB.setOnClickListener(view1 -> refreshLeaderboard());
 
         refreshLeaderboard();
     }
 
+    // This suppresses the warning from not using Locale, which we discuss why we don't use in the code for the exchange dialog fragment
+    @SuppressLint("SetTextI18n")
     private void refreshLeaderboard() {
         refreshFAB.setEnabled(false);
-        if (((MainActivity) getActivity()).isNetworkAvailable()) {
-            if (!((MainActivity) getActivity()).settings.getString("username", "").equals("")) {
-                for (TableRow row : rows) {
-                    row.setVisibility(View.GONE);
-                }
-                db.collection(users)
-                        .get()
-                        .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                            @Override
-                            public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                                if (task.isSuccessful()) {
-                                    ArrayList<UserNdGold> userNdGolds = new ArrayList<>();
-                                    for (QueryDocumentSnapshot document : task.getResult()) {
-                                        String otherUsername = document.getString("username");
-                                        if (otherUsername == null) {
-                                            // This is necessary as it is not guarenteed every document in users has a username, e.g. the usernames document
-                                            continue;
-                                        }
-                                        double gold = document.getDouble("GOLD");
-                                        if (!otherUsername.equals("")) {
-                                            userNdGolds.add(new UserNdGold(otherUsername, gold));
-                                        }
-                                    }
-                                    // Sort the list into descending order
-                                    userNdGolds.sort(new Comparator<UserNdGold>() {
-                                        @Override
-                                        public int compare(UserNdGold t1, UserNdGold t2) {
-                                            if (t1.getGold() < t2.getGold()) {
-                                                return 1;
+        if (getActivity() != null) {
+            if (getActivity().getClass() == MainActivity.class) {
+                // We require a network connection to get the database
+                if (((MainActivity) getActivity()).isNetworkAvailable()) {
+                    // We require the user to have create a username for themself so we can show their
+                    // position on the leaderboard
+                    if (!((MainActivity) getActivity()).settings.getString("username", "").equals("")) {
+                        // Hide all rows, as we won't show some if there are less than 10 users being displayed
+                        // on the leaderboard
+                        for (TableRow row : rows) {
+                            row.setVisibility(View.GONE);
+                        }
+                        // Get all users documents
+                        db.collection(users)
+                                .get()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        // Put all users into users usernames and gold counts into an array
+                                        ArrayList<UserNdGold> userNdGolds = new ArrayList<>();
+                                        for (QueryDocumentSnapshot document : task.getResult()) {
+                                            String otherUsername = document.getString("username");
+                                            if (otherUsername == null) {
+                                                // This is necessary as it is not guarenteed every document in users has a username, e.g. the usernames document
+                                                continue;
                                             }
-                                            if (t1.getGold() > t2.getGold()) {
-                                                return -1;
+                                            Double gold = document.getDouble("GOLD");
+                                            if (gold == null) {
+                                                System.out.println("NO GOLD VALUE DECLARED FOR USER " + otherUsername);
+                                                continue;
                                             }
-                                            return 0;
+                                            if (!otherUsername.equals("")) {
+                                                userNdGolds.add(new UserNdGold(otherUsername, gold));
+                                            }
                                         }
-                                    });
-                                    int currUserRank = -1;
-                                    UserNdGold currUser = new UserNdGold("", 0);
-                                    for (int i = 0; i < userNdGolds.size(); i++) {
-                                        UserNdGold user = userNdGolds.get(i);
-                                        if (user.getUsername().equals(username)) {
-                                            currUserRank = i + 1;
-                                            currUser = user;
-                                            break;
+                                        // Sort the list into descending order
+                                        userNdGolds.sort(LeaderboardFragment::compare);
+                                        // Find the users position in the list and their stats
+                                        int currUserRank = -1;
+                                        UserNdGold currUser = new UserNdGold("", 0);
+                                        for (int i = 0; i < userNdGolds.size(); i++) {
+                                            UserNdGold user = userNdGolds.get(i);
+                                            if (user.getUsername().equals(username)) {
+                                                currUserRank = i + 1;
+                                                currUser = user;
+                                                break;
+                                            }
                                         }
-                                    }
-                                    if (userNdGolds.size() < 10) {
-                                        top10Txt.setText(String.format("Top %s", userNdGolds.size()));
+                                        // At maxmimum we will show the top 10, but if there's less
+                                        // than 10 people in the database we'll show the top n
+                                        if (userNdGolds.size() < 10) {
+                                            top10Txt.setText(String.format("Top %s", userNdGolds.size()));
+                                        } else {
+                                            top10Txt.setText(R.string.top_10);
+                                        }
+                                        // Set the title and field headers for the main table to visible
+                                        rows[3].setVisibility(View.VISIBLE);
+                                        rows[4].setVisibility(View.VISIBLE);
+                                        // Set the rows for the top 10, or top n if there are less than
+                                        // 10 users in the database
+                                        for (int i = 0; i < Math.min(userNdGolds.size(), 10); i++) {
+                                            UserNdGold user = userNdGolds.get(i);
+                                            names[i + 1].setText(user.getUsername());
+                                            golds[i + 1].setText(user.getGoldStr());
+                                            rows[i + 5].setVisibility(View.VISIBLE);
+                                        }
+                                        // If there's more than 10 users in the database we show the
+                                        // user their place on the database
+                                        if (currUserRank > 10) {
+                                            userRank.setText(Integer.toString(currUserRank));
+                                            names[0].setText(currUser.getUsername());
+                                            golds[0].setText(currUser.getGoldStr());
+                                            for (int i = 0; i < 3; i++) {
+                                                rows[i].setVisibility(View.VISIBLE);
+                                            }
+                                        }
                                     } else {
-                                        top10Txt.setText(R.string.top_10);
+                                        System.out.printf("GETTING LEADERBOARD FAILED WITH EXCEPTION:\n%s\n",
+                                                task.getException());
+                                        Toast.makeText(getActivity(), "Something went wrong when downloading the leaderboard, please check your internet connection and try again.", Toast.LENGTH_LONG).show();
                                     }
-                                    rows[3].setVisibility(View.VISIBLE);
-                                    rows[4].setVisibility(View.VISIBLE);
-                                    for (int i = 0; i < Math.min(userNdGolds.size(), 10); i++) {
-                                        UserNdGold user = userNdGolds.get(i);
-                                        names[i + 1].setText(user.getUsername());
-                                        golds[i + 1].setText(user.getGoldStr());
-                                        rows[i + 5].setVisibility(View.VISIBLE);
-                                    }
-                                    if (currUserRank > 10) {
-                                        userRank.setText(Integer.toString(currUserRank));
-                                        names[0].setText(currUser.getUsername());
-                                        golds[0].setText(currUser.getGoldStr());
-                                        for (int i = 0; i < 3; i++) {
-                                            rows[i].setVisibility(View.VISIBLE);
-                                        }
-                                    }
-                                } else {
-                                    System.out.printf("GETTING LEADERBOARD FAILED WITH EXCEPTION:\n%s\n",
-                                            task.getException().getMessage());
-                                    Toast.makeText(getActivity(), "Something went wrong when downloading the leaderboard, please check your internet connection and try again.", Toast.LENGTH_LONG).show();
-                                }
-                                refreshFAB.setEnabled(true);
-                            }
-                        });
+                                    refreshFAB.setEnabled(true);
+                                });
+                    } else {
+                        // If the users username isn't set we show them the create username dialog
+                        DialogFragment newFragment = new ChangeUsernameDialogFragment();
+                        Bundle args = new Bundle();
+                        args.putBoolean("isNewUser", true);
+                        args.putBoolean("isLeaderboard", true);
+                        args.putString("username", username);
+                        args.putString("uid", uid);
+                        newFragment.setArguments(args);
+                        // We suppress the warning about getActivity being null, as we ensure it's non-null before this is run
+                        newFragment.show(Objects.requireNonNull(getActivity()).getSupportFragmentManager(), "create_username_dialog");
+                        refreshFAB.setEnabled(true);
+                    }
+                } else {
+                    Toast.makeText(getActivity(), "You require an internet connection to update the leaderboard. Please connect to the internet and try again.", Toast.LENGTH_LONG).show();
+                    refreshFAB.setEnabled(true);
+                }
             } else {
-                DialogFragment newFragment = new ChangeUsernameDialogFragment();
-                Bundle args = new Bundle();
-                args.putBoolean("isNewUser", true);
-                args.putBoolean("isLeaderboard", true);
-                args.putString("username", username);
-                args.putString("uid", uid);
-                newFragment.setArguments(args);
-                newFragment.show(getActivity().getSupportFragmentManager(), "create_username_dialog");
+                System.out.println("ACTIVITY CLASS WAS EXPECTED TO BE MAIN ACTIVITY BUT ISN'T");
                 refreshFAB.setEnabled(true);
             }
         } else {
-            Toast.makeText(getActivity(), "You require an internet connection to update the leaderboard. Please connect to the internet and try again.", Toast.LENGTH_LONG);
+            System.out.println("ACTIVITY WAS NULL WHEN EXPECTED NON-NULL");
             refreshFAB.setEnabled(true);
         }
     }
 
+    // We use this object to store details about the user in the array list, we use objects and an
+    // array list as opposed to a hashmap so that we can sort the list
     class UserNdGold {
         private String username;
         private double gold;
@@ -224,16 +244,16 @@ public class LeaderboardFragment extends Fragment {
             return gold;
         }
 
-        public String getGoldStr() {
+        String getGoldStr() {
             String goldStr;
             if (gold >= Math.pow(10, 9)) {
-                goldStr = String.format("%.3f B", gold / Math.pow(10, 9));
+                goldStr = String.format(Locale.getDefault(), "%.3f B", gold / Math.pow(10, 9));
             } else if (gold >= Math.pow(10, 6)) {
-                goldStr = String.format("%.3f M", gold / Math.pow(10, 6));
+                goldStr = String.format(Locale.getDefault(), "%.3f M", gold / Math.pow(10, 6));
             } else if (gold >= Math.pow(10, 3)) {
-                goldStr = String.format("%.3f K", gold / Math.pow(10, 3));
+                goldStr = String.format(Locale.getDefault(), "%.3f K", gold / Math.pow(10, 3));
             } else {
-                goldStr = String.format("%.3f", gold);
+                goldStr = String.format(Locale.getDefault(), "%.3f", gold);
             }
             return goldStr;
         }
