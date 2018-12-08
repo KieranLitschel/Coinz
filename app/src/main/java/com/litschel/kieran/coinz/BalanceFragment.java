@@ -162,15 +162,16 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     // thread as it can be called be threads other than the UI one, and whenever we are modifying the
     // UI we must call these methods on the UI thread
     private void setupValues() {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
                 for (String currency : currencies) {
                     double currVal = currencyValues.get(currency);
                     currencyTexts.get(currency).setText(String.format("%s:\n%s\n", currency, currVal));
                 }
-            }
-        });
+            });
+        } else {
+            System.out.println("EXPECTED ACTIVITY WAS NON-NULL BUT FOUND NULL");
+        }
     }
 
     // This is called when a trade is submitted through the trade dialog, and it safely updates the
@@ -187,13 +188,12 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
         this.coinsRemainingToday = coinsRemainingToday;
         tradeExecuting = false;
         setupValues();
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(activity, "Trade executed successfully, balances have been updated.", Toast.LENGTH_LONG)
-                        .show();
-            }
-        });
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> Toast.makeText(activity, "Trade executed successfully, balances have been updated.", Toast.LENGTH_LONG)
+                    .show());
+        } else {
+            System.out.println("EXPECTED ACTIVITY WAS NON-NULL BUT FOUND NULL");
+        }
     }
 
     // This creates the dialog for the user to create a new username or update their old one

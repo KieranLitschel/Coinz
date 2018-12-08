@@ -45,6 +45,10 @@ public class ExecuteTradeTask implements Runnable {
     @Override
     public void run() {
         long lockStamp = settingsWriteLock.writeLock();
+        // Update local values to reflect database change
+        currencyValues.put(currency, currencyValues.get(currency) - tradeAmount);
+        currencyValues.put("GOLD", currencyValues.get("GOLD") + tradeAmount * exchangeRate);
+        coinsRemainingToday -= tradeAmount;
         if (activity.isNetworkAvailable()) {
             DocumentReference docRef = db.collection(users).document(activity.uid);
             db.runTransaction((Transaction.Function<Void>) transaction -> {
@@ -70,10 +74,6 @@ public class ExecuteTradeTask implements Runnable {
                 // Success
                 return null;
             }).addOnSuccessListener(aVoid -> {
-                // Update local values to reflect database change
-                currencyValues.put(currency, currencyValues.get(currency) - tradeAmount);
-                currencyValues.put("GOLD", currencyValues.get("GOLD") + tradeAmount * exchangeRate);
-                coinsRemainingToday -= tradeAmount;
                 SharedPreferences.Editor editor = settings.edit();
                 editor.putString(currency, Double.toString(currencyValues.get(currency)));
                 editor.putString("GOLD", Double.toString(currencyValues.get("GOLD")));
