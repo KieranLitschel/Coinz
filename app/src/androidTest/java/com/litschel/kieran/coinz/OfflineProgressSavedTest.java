@@ -370,6 +370,12 @@ public class OfflineProgressSavedTest {
                                 4)));
         appCompatButtonLogin2.perform(scrollTo(), click());
 
+        try {
+            Thread.sleep(7500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // Go to the balance fragment
 
         ViewInteraction appCompatImageButtonBal2 = onView(

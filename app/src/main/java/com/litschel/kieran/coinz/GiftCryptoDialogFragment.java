@@ -25,7 +25,6 @@ import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -47,7 +46,6 @@ public class GiftCryptoDialogFragment extends DialogFragment {
     private String users;
     private String gifts;
     private String users_gifts;
-    private Locale locale;
 
     @NonNull
     @Override
@@ -56,8 +54,6 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         Bundle args = getArguments();
 
         if (getActivity() != null && args != null && getContext() != null) {
-
-            locale = getResources().getConfiguration().getLocales().get(0);
 
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
             db = FirebaseFirestore.getInstance();
@@ -186,6 +182,9 @@ public class GiftCryptoDialogFragment extends DialogFragment {
     }
 
     // We update the edit text as we did in the exchange dialog fragment
+    // This suppresses the warning caused to Double.toString which we use for the same reason
+    // as discussed in the exchange dialog fragment
+    @SuppressLint("SetTextI18n")
     private void updateGiftAmount(String strgiftAmount) {
         if (strgiftAmount.equals("")) {
             giftAmount = 0;
@@ -194,7 +193,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
             // Make sure the user hasn't asked to trade more currency than they have
             if (currencyVals.get(selectedCurrency) - giftAmount < 0) {
                 // Reduce the amount in the input box and read as input to the maximum they can trade
-                giftAmountEditText.setText(String.format(locale, "%f", currencyVals.get(selectedCurrency)));
+                giftAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
                 giftAmount = currencyVals.get(selectedCurrency);
             }
             // This ensures players can't steal coins from others if there balance becomes negative somehow

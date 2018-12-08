@@ -17,7 +17,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.util.HashMap;
-import java.util.Locale;
 
 // This class creates a dialog fragment which allows the user to enter how much crypto they'd like
 // to exchange with the bank and submit the exchange
@@ -34,24 +33,17 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
     private TextView valueInGoldText;
     private TextView coinsRemainingTodayText;
     private EditText tradeAmountEditText;
-    private Locale locale;
 
     // This sets up the dialog fragment for display and how it behaves
 
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 
         Bundle args = getArguments();
 
         if (getActivity()!=null && args != null && getContext() != null){
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-
-            // Use locales to ensure if we expanded the game to other countries, deicmal system would be
-            // correct (e.g. in Europe they use commas instead of dots to signify the start of decimal
-            // places)
-            locale = getResources().getConfiguration().getLocales().get(0);
-
             LayoutInflater inflater = getActivity().getLayoutInflater();
 
             // We suppress the lint warning here about a null parent as we do not have a parent layout
@@ -171,6 +163,9 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
 
     // Run this whenever we change selectedCurrency or tradeAmount in order to ensure the coins
     // in the edit box are a legal value
+    // This suppresses the warning to consider using String.format instead of Double.toString, I tried
+    // using locale but it added unecessary decimal places, so I switched back to Double.toString
+    @SuppressLint("SetTextI18n")
     private void updateTradeAmount(String strTradeAmount){
         if (strTradeAmount.equals("")) {
             tradeAmount = 0;
@@ -179,12 +174,12 @@ public class ExchangeCryptoDialogFragment extends DialogFragment {
             // Make sure the user hasn't asked to trade more currency than they have
             if (currencyVals.get(selectedCurrency) - tradeAmount < 0) {
                 // Reduce the amount in the input box and read as input to the maximum they can trade
-                tradeAmountEditText.setText(String.format(locale,"%f",currencyVals.get(selectedCurrency)));
+                tradeAmountEditText.setText(Double.toString(currencyVals.get(selectedCurrency)));
                 tradeAmount = currencyVals.get(selectedCurrency);
             }
             // Make sure the user hasn't asked to trade more currency than the bank will accept
             if (coinsRemainingToday - tradeAmount < 0) {
-                tradeAmountEditText.setText(String.format(locale,"%f",coinsRemainingToday));
+                tradeAmountEditText.setText(Double.toString(coinsRemainingToday));
                 tradeAmount = coinsRemainingToday;
             }
             // This ensures they can't take crypto from the bank in exchange for gold if their crypto balance becomes negative somehow
