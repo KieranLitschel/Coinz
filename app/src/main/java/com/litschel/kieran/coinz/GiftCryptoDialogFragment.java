@@ -140,7 +140,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                 dialog.dismiss();
                 if (getTargetFragment() != null) {
                     if (getTargetFragment().getClass() == BalanceFragment.class) {
-                        ((BalanceFragment) getTargetFragment()).updateUsernameFragment(username, false);
+                        ((BalanceFragment) getTargetFragment()).createUsernameFragment(username);
                     } else {
                         System.out.println("EXPECTED TARGET FRAGMENTS CLASS TO BE BALANCE FRAGMENT BUT IS NOT");
                     }

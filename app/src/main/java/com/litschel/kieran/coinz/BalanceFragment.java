@@ -217,7 +217,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
 
     // This creates the dialog for the user to create a new username or update their old one
 
-    private void createUsernameFragment(String username) {
+    public void createUsernameFragment(String username) {
         // Recheck internet connection here even though checked in gift FAB as this can be called from
         // GiftCryptoDialogFragment too
         if (getActivity() != null) {

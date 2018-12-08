@@ -10,9 +10,6 @@ import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
-import android.os.Handler;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
@@ -31,37 +28,32 @@ import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.QuerySnapshot;
-import com.google.firebase.firestore.Transaction;
 import com.google.firebase.firestore.WriteBatch;
 import com.litschel.kieran.coinz.NoInternetDialogFragment.NoInternetDialogCallback;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.StampedLock;
 
+// COMMENT MAIN ACTIVITY
+
 public class MainActivity extends AppCompatActivity implements NoInternetDialogCallback, CoinsUpdateWithDeltaCallback, CoinsUpdateTaskCallback {
 
-    private String[] testers = new String[]{
+    private String[] testerUids = new String[]{
             "EdrUWa2aEjNP0PAnyzi34AZRKGG3",
             "9dAfz9WWB2SWalZdcHmLhjrGdvT2",
             "GwNuEg0pEUQvpuaBXiCU5uWip0G2",
@@ -81,7 +73,6 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     public String users_gifts;
     private MainActivity activity = this;
     public SharedPreferences settings;
-    private final String settingsFile = "SettingsFile";
     private static final int RC_SIGN_IN = 9000;
     public String uid;
     public FirebaseFirestore db;
@@ -163,31 +154,30 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
         coinsUpdateExecutor = Executors.newFixedThreadPool(1);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         ActionBar actionbar = getSupportActionBar();
-        actionbar.setDisplayHomeAsUpEnabled(true);
-        actionbar.setHomeAsUpIndicator(R.drawable.ic_menu);
+        if (actionbar != null) {
+            actionbar.setDisplayHomeAsUpEnabled(true);
+            actionbar.setHomeAsUpIndicator(R.drawable.ic_menu);
+        } else {
+            System.out.println("EXPECTED ACTION BAR TO BE NON-NULL BUT FOUND TO BE NULL");
+        }
 
         nextDayBtn = findViewById(R.id.changeDayButton);
-        nextDayBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                fixedTestDay = fixedTestDay.plusDays(1);
-                if (currentFragment.getClass() == MapFragment.class) {
-                    ((MapFragment) currentFragment).checkForMapUpdate();
-                }
+        nextDayBtn.setOnClickListener(view -> {
+            fixedTestDay = fixedTestDay.plusDays(1);
+            if (currentFragment.getClass() == MapFragment.class) {
+                ((MapFragment) currentFragment).checkForMapUpdate();
             }
         });
         flipInternetStateBtn = findViewById(R.id.internetButton);
-        flipInternetStateBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                testerInternet = !testerInternet;
-                onNetworkChange();
-            }
+        flipInternetStateBtn.setOnClickListener(view -> {
+            testerInternet = !testerInternet;
+            onNetworkChange();
         });
 
+        String settingsFile = "SettingsFile";
         settings = getSharedPreferences(settingsFile, Context.MODE_PRIVATE);
         uid = settings.getString("uid", "");
         setupIfTester();
@@ -200,55 +190,52 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
 
         navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(
-                new NavigationView.OnNavigationItemSelectedListener() {
-                    @Override
-                    public boolean onNavigationItemSelected(MenuItem menuItem) {
-                        int itemId = menuItem.getItemId();
+                menuItem -> {
+                    int itemId = menuItem.getItemId();
 
-                        if (!navigationView.getMenu().findItem(menuItem.getItemId()).isChecked()) {
-                            Class fragmentClass = null;
+                    if (!navigationView.getMenu().findItem(menuItem.getItemId()).isChecked()) {
+                        Class fragmentClass = null;
 
-                            switch (itemId) {
-                                case R.id.nav_map:
-                                    fragmentClass = MapFragment.class;
-                                    break;
-                                case R.id.nav_balance:
-                                    fragmentClass = BalanceFragment.class;
-                                    break;
-                                case R.id.nav_leaderboard:
-                                    fragmentClass = LeaderboardFragment.class;
-                                    break;
-                                case R.id.nav_logout:
-                                    logout();
-                                    break;
-                                default:
-                                    fragmentClass = MapFragment.class;
-                            }
-
-                            // If we use logout we don't want the currently displayed fragment to change
-                            if (itemId != R.id.nav_logout) {
-                                try {
-                                    currentFragment = (Fragment) fragmentClass.newInstance();
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                // Insert the fragment by replacing any existing fragment
-                                fragmentManager = getSupportFragmentManager();
-                                fragmentManager.beginTransaction().replace(R.id.flContent, currentFragment).commit();
-
-                                // Highlight the selected item has been done by NavigationView
-                                menuItem.setChecked(true);
-                                // Set action bar title
-                                setTitle(menuItem.getTitle());
-                            }
+                        switch (itemId) {
+                            case R.id.nav_map:
+                                fragmentClass = MapFragment.class;
+                                break;
+                            case R.id.nav_balance:
+                                fragmentClass = BalanceFragment.class;
+                                break;
+                            case R.id.nav_leaderboard:
+                                fragmentClass = LeaderboardFragment.class;
+                                break;
+                            case R.id.nav_logout:
+                                logout();
+                                break;
+                            default:
+                                fragmentClass = MapFragment.class;
                         }
 
-                        // Close the navigation drawer
-                        mDrawerLayout.closeDrawers();
+                        // If we use logout we don't want the currently displayed fragment to change
+                        if (itemId != R.id.nav_logout) {
+                            try {
+                                currentFragment = (Fragment) fragmentClass.newInstance();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
 
-                        return true;
+                            // Insert the fragment by replacing any existing fragment
+                            fragmentManager = getSupportFragmentManager();
+                            fragmentManager.beginTransaction().replace(R.id.flContent, currentFragment).commit();
+
+                            // Highlight the selected item has been done by NavigationView
+                            menuItem.setChecked(true);
+                            // Set action bar title
+                            setTitle(menuItem.getTitle());
+                        }
                     }
+
+                    // Close the navigation drawer
+                    mDrawerLayout.closeDrawers();
+
+                    return true;
                 });
 
         signIn();
@@ -275,7 +262,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private void signIn() {
         if (uid.equals("")) {
             if (isNetworkAvailable()) {
-                List<AuthUI.IdpConfig> providers = Arrays.asList(
+                List<AuthUI.IdpConfig> providers = Collections.singletonList(
                         new AuthUI.IdpConfig.EmailBuilder().build());
                 startActivityForResult(
                         AuthUI.getInstance()
@@ -307,8 +294,13 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             // I found this method here (https://stackoverflow.com/questions/4238921/detect-whether-there-is-an-internet-connection-available-on-android)
             ConnectivityManager connectivityManager
                     = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-            return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+            if (connectivityManager != null) {
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+            } else {
+                System.out.println("EXECTED CONECTIVITY MANAGER TO BE NON-NULL BUT FOUND TO BE NULL");
+                return false;
+            }
         }
     }
 
@@ -323,19 +315,29 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                 // Successfully signed in
                 // When only using one sign in method (in this case email), the uid for each user is unique
                 // so we can use this to uniquely identify them in the database
-                uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-                justLoggedIn = true;
-                setupIfTester();
-                SharedPreferences.Editor editor = settings.edit();
-                editor.putString("uid", uid);
-                editor.apply();
-                checkFirstTimeUser();
+                if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+                    uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+                    justLoggedIn = true;
+                    setupIfTester();
+                    SharedPreferences.Editor editor = settings.edit();
+                    editor.putString("uid", uid);
+                    editor.apply();
+                    checkFirstTimeUser();
+                } else {
+                    System.out.println("FIREBASEAUTH RETURN NULL USER WHEN EXPECTED TO BE NON-NULL");
+                }
                 // ...
             } else {
                 if (response != null) {
-                    System.out.println("USER FAILED TO SIGN IN WITH ERROR CODE" + response.getError().getErrorCode());
-                    Toast.makeText(this, String.format("Failed to sign in with error code %s, please try again", response.getError().getErrorCode()), Toast.LENGTH_LONG)
-                            .show();
+                    if (response.getError() != null) {
+                        System.out.println("USER FAILED TO SIGN IN WITH ERROR CODE " + response.getError().getErrorCode());
+                        Toast.makeText(this, String.format("Failed to sign in with error code %s, please try again", response.getError().getErrorCode()), Toast.LENGTH_LONG)
+                                .show();
+                    } else {
+                        System.out.println("USER FAILED TO SIGN IN WITH AN UNKNOWN ERROR");
+                        Toast.makeText(this, "Failed to sign in with an unknown error, please try again", Toast.LENGTH_LONG)
+                                .show();
+                    }
                 } else {
                     Toast.makeText(this, "You must sign in to use this app.", Toast.LENGTH_LONG)
                             .show();
@@ -348,26 +350,23 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     private void checkFirstTimeUser() {
         DocumentReference docRef = db.collection(users).document(uid);
         System.out.println("CHECKING IF USER EXISTS IN DATABASE");
-        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    if (!document.exists()) {
-                        System.out.println("FIRST TIME USER, SETTING DEFAULTS");
-                        setFirstTimeUser();
-                    } else {
-                        System.out.println("USER EXISTS IN DATABASE");
-                        setDefaultFragment();
-                        // Note if we've just logged in we show gifts rather setting up the listener,
-                        // this is to allow us to prevent updating the local coins values with gifts
-                        // we recieve on login, as we will already have the up to date values downloaded
-                        settingUpUserGiftListener = true;
-                        showGifts();
-                    }
+        docRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot document = task.getResult();
+                if (!document.exists()) {
+                    System.out.println("FIRST TIME USER, SETTING DEFAULTS");
+                    setFirstTimeUser();
                 } else {
-                    System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
+                    System.out.println("USER EXISTS IN DATABASE");
+                    setDefaultFragment();
+                    // Note if we've just logged in we show gifts rather setting up the listener,
+                    // this is to allow us to prevent updating the local coins values with gifts
+                    // we recieve on login, as we will already have the up to date values downloaded
+                    settingUpUserGiftListener = true;
+                    showGifts();
                 }
+            } else {
+                System.out.println("FAILED TO GET WHETHER USER IS LOGGED IN");
             }
         });
     }
@@ -393,21 +392,13 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         batch.set(userGiftDocRef, user_gift_defaults);
 
         batch.commit()
-                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                    @Override
-                    public void onSuccess(Void aVoid) {
-                        System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
-                        setDefaultFragment();
-                        settingUpUserGiftListener = true;
-                        showGifts();
-                    }
+                .addOnSuccessListener(aVoid -> {
+                    System.out.println("SUCCESSFULLY ADDED USER TO DATABASE");
+                    setDefaultFragment();
+                    settingUpUserGiftListener = true;
+                    showGifts();
                 })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        System.out.println("FAILED TO ADD USER TO DATABASE");
-                    }
-                });
+                .addOnFailureListener(e -> System.out.println("FAILED TO ADD USER TO DATABASE"));
     }
 
     private void logout() {
@@ -420,12 +411,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     }
 
     public void setToUpdateCoinsOnInternet() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(activity, "Could not connect to the internet, progress offline will be updated in the cloud when connection is established.", Toast.LENGTH_LONG).show();
-            }
-        });
+        runOnUiThread(() -> Toast.makeText(activity, "Could not connect to the internet, progress offline will be updated in the cloud when connection is established.", Toast.LENGTH_LONG).show());
         waitingToUpdateCoins = true;
     }
 
@@ -492,12 +478,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     @Override
     public void onCoinsUpdateWithDeltaComplete(long lockStamp) {
         waitingToUpdateCoins = false;
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(activity, "Progress offline has been updated in the cloud.", Toast.LENGTH_LONG).show();
-            }
-        });
+        runOnUiThread(() -> Toast.makeText(activity, "Progress offline has been updated in the cloud.", Toast.LENGTH_LONG).show());
         settingsWriteLock.unlockWrite(lockStamp);
     }
 
@@ -506,40 +487,49 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
         final DocumentReference usernamesDocRef = db.collection(users).document("usernames");
         usernamesDocRef
                 .get()
-                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                        if (task.isSuccessful()) {
-                            // First we get the list of usernames
-                            DocumentSnapshot usernames = task.getResult();
-                            if (usernames.exists()) {
-                                System.out.println("GOT USERNAMES DOC");
-                                final DocumentReference userGiftsDocRef = db.collection(users_gifts).document(uid);
-                                // We show all the gifts already stored
-                                System.out.println("GETTING NEW GIFTS");
-                                db.runTransaction(new Transaction.Function<ArrayList<String[]>>() {
-                                    @Override
-                                    public ArrayList<String[]> apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                                        // The first step to showing them is to get them from the database
-                                        DocumentSnapshot userGiftsSnapshot = transaction.get(userGiftsDocRef);
-                                        // As we have a username document we use this to get usernames rather than from each
-                                        // users document, this is because the username document is less likely to be updated
-                                        // mid-transaction
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        // First we get the list of usernames
+                        DocumentSnapshot usernames = task.getResult();
+                        if (usernames.exists()) {
+                            System.out.println("GOT USERNAMES DOC");
+                            final DocumentReference userGiftsDocRef = db.collection(users_gifts).document(uid);
+                            // We show all the gifts already stored
+                            System.out.println("GETTING NEW GIFTS");
+                            db.runTransaction(transaction -> {
+                                // The first step to showing them is to get them from the database
+                                DocumentSnapshot userGiftsSnapshot = transaction.get(userGiftsDocRef);
+                                // As we have a username document we use this to get usernames rather than from each
+                                // users document, this is because the username document is less likely to be updated
+                                // mid-transaction
 
+                                Object giftsObj = userGiftsSnapshot.get("gifts");
+                                if (giftsObj != null) {
+                                    try {
+                                        // We suppress warning here as impossible to fail, but IDE gives a warning falsely about unchecked cast
+                                        @SuppressWarnings("unchecked")
                                         ArrayList<String> giftIDs = (ArrayList<String>) userGiftsSnapshot.get("gifts");
 
                                         ArrayList<String[]> giftDetails = new ArrayList<>();
 
                                         ArrayList<DocumentReference> giftDocRefs = new ArrayList<>();
 
+                                        // We assert giftIDs is not null, as the checks above ensure it isn't
+                                        assert giftIDs != null;
                                         for (String giftID : giftIDs) {
                                             DocumentReference giftDocRef = db.collection(gifts).document(giftID);
-                                            giftDocRefs.add(giftDocRef);
                                             DocumentSnapshot giftSnapshot = transaction.get(giftDocRef);
-                                            String senderName = usernames.getString(giftSnapshot.getString("senderUid"));
-                                            String currency = giftSnapshot.getString("currency");
-                                            String amount = Double.toString(giftSnapshot.getDouble("amount"));
-                                            giftDetails.add(new String[]{senderName, currency, amount});
+                                            String senderUid = giftSnapshot.getString("senderUid");
+                                            Double giftAmount = giftSnapshot.getDouble("amount");
+                                            if (senderUid != null & giftAmount != null) {
+                                                giftDocRefs.add(giftDocRef);
+                                                String senderName = usernames.getString(senderUid);
+                                                String currency = giftSnapshot.getString("currency");
+                                                String amount = Double.toString(giftAmount);
+                                                giftDetails.add(new String[]{senderName, currency, amount});
+                                            } else {
+                                                System.out.println("EXPECTED SENDER UID AND GIFT AMOUNT TO BE NON-NULL, BUT AT LEAST ONE IS NULL");
+                                            }
                                         }
 
                                         for (DocumentReference giftDocRef : giftDocRefs) {
@@ -550,54 +540,49 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
                                         usersGiftsDetails.put("gifts", new ArrayList<String>());
                                         transaction.set(userGiftsDocRef, usersGiftsDetails);
                                         return giftDetails;
+                                    } catch (ClassCastException e) {
+                                        throw new FirebaseFirestoreException("GIFTS IS NOT AN ARRAY LIST",
+                                                FirebaseFirestoreException.Code.ABORTED);
                                     }
-                                }).addOnSuccessListener(new OnSuccessListener<ArrayList<String[]>>() {
-                                    @Override
-                                    public void onSuccess(ArrayList<String[]> giftDetails) {
-                                        // Once we've gotten the current batch of gifts we set up a listener to listen for new gifts
-                                        settingUpUserGiftListener = false;
-                                        justUpdated = true;
-                                        setUpListenerForGifts();
-                                        // After that we show the gifts we have just fetched
-                                        if (giftDetails.size() > 0) {
-                                            HashMap<String, Double> currencyChanges = new HashMap<>();
-                                            for (String[] giftDetail : giftDetails) {
-                                                String senderName = giftDetail[0];
-                                                String currency = giftDetail[1];
-                                                double amount = Double.parseDouble(giftDetail[2]);
-                                                runOnUiThread(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        Toast.makeText(activity, String.format("Recieved %s %s from %s", amount, currency, senderName), Toast.LENGTH_LONG).show();
-                                                    }
-                                                });
-                                                if (!justLoggedIn) {
-                                                    currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
-                                                }
-                                            }
-                                            if (!justLoggedIn) {
-                                                coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, settingsWriteLock, settings, currencyChanges));
-                                            }
-                                        }
-                                        if (justLoggedIn){
-                                            justLoggedIn = false;
-                                        }
-                                    }
-                                }).addOnFailureListener(new OnFailureListener() {
-                                    @Override
-                                    public void onFailure(@NonNull Exception e) {
-                                        System.out.printf("TRANSACTION FOR RECEIVING GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
-                                        settingUpUserGiftListener = false;
-                                    }
-                                });
-                            } else {
-                                System.out.println("COULD NOT FIND USERNAMES DOC");
+                                } else {
+                                    throw new FirebaseFirestoreException("COULD NOT GET GIFTS FROM USERS-GIFTS DOC FOR JIM",
+                                            FirebaseFirestoreException.Code.ABORTED);
+                                }
+                            }).addOnSuccessListener(giftDetails -> {
+                                // Once we've gotten the current batch of gifts we set up a listener to listen for new gifts
                                 settingUpUserGiftListener = false;
-                            }
+                                justUpdated = true;
+                                setUpListenerForGifts();
+                                // After that we show the gifts we have just fetched
+                                if (giftDetails.size() > 0) {
+                                    HashMap<String, Double> currencyChanges = new HashMap<>();
+                                    for (String[] giftDetail : giftDetails) {
+                                        String senderName = giftDetail[0];
+                                        String currency = giftDetail[1];
+                                        double amount = Double.parseDouble(giftDetail[2]);
+                                        runOnUiThread(() -> Toast.makeText(activity, String.format("Recieved %s %s from %s", amount, currency, senderName), Toast.LENGTH_LONG).show());
+                                        if (!justLoggedIn) {
+                                            currencyChanges.put(currency, currencyChanges.getOrDefault(currency, 0.0) + amount);
+                                        }
+                                    }
+                                    if (!justLoggedIn) {
+                                        coinsUpdateExecutor.submit(new CoinsUpdateTask(activity, settingsWriteLock, settings, currencyChanges));
+                                    }
+                                }
+                                if (justLoggedIn) {
+                                    justLoggedIn = false;
+                                }
+                            }).addOnFailureListener(e -> {
+                                System.out.printf("TRANSACTION FOR RECEIVING GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
+                                settingUpUserGiftListener = false;
+                            });
                         } else {
-                            System.out.printf("GETTING USERNAMES DOC FOR SHOWING GIFTS FAILED WITH EXCEPTION:\n%s\n", task.getException().getMessage());
+                            System.out.println("COULD NOT FIND USERNAMES DOC");
                             settingUpUserGiftListener = false;
                         }
+                    } else {
+                        System.out.printf("GETTING USERNAMES DOC FOR SHOWING GIFTS FAILED WITH EXCEPTION:\n%s\n", task.getException());
+                        settingUpUserGiftListener = false;
                     }
                 });
     }
@@ -611,37 +596,46 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
             if (isNetworkAvailable()) {
                 final DocumentReference userGiftsDocRef = db.collection(users_gifts).document(uid);
 
-                userGiftListener = userGiftsDocRef.addSnapshotListener(new EventListener<DocumentSnapshot>() {
-                    @Override
-                    public void onEvent(@Nullable DocumentSnapshot snapshot,
-                                        @Nullable FirebaseFirestoreException e) {
-                        if (e != null) {
-                            System.out.printf("LISTENING FOR GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
-                            userGiftListener = null;
-                            return;
-                        }
+                userGiftListener = userGiftsDocRef.addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        System.out.printf("LISTENING FOR GIFTS FAILED WITH EXCEPTION:\n%s\n", e.getMessage());
+                        userGiftListener = null;
+                        return;
+                    }
 
-                        // We use justUpdated to prevent checking for changes when a gift has just been
-                        // shown, as I found this could lead to infinite loops
+                    // We use justUpdated to prevent checking for changes when a gift has just been
+                    // shown, as I found this could lead to infinite loops
 
-                        if (!justUpdated){
+                    if (!justUpdated) {
 
-                            if (snapshot != null && snapshot.exists()) {
-                                System.out.println("FOUND NEW GIFTS");
-                                ArrayList<String> gifts = (ArrayList<String>) snapshot.get("gifts");
-                                if (gifts.size() > 0) {
-                                    settingUpUserGiftListener = true;
-                                    userGiftListener.remove();
-                                    userGiftListener = null;
-                                    showGifts();
+                        if (snapshot != null && snapshot.exists()) {
+                            System.out.println("FOUND NEW GIFTS");
+                            Object giftsObj = snapshot.get("gifts");
+                            if (giftsObj != null) {
+                                try {
+                                    // We suppress warning here as impossible to fail, but IDE gives a warning falsely about unchecked cast
+                                    @SuppressWarnings("unchecked")
+                                    ArrayList<String> gifts = (ArrayList<String>) snapshot.get("gifts");
+                                    // We can require non-null here as above ensures gifts will never be null
+                                    // for this code to be executed
+                                    if (Objects.requireNonNull(gifts).size() > 0) {
+                                        settingUpUserGiftListener = true;
+                                        userGiftListener.remove();
+                                        userGiftListener = null;
+                                        showGifts();
+                                    }
+                                } catch (ClassCastException err) {
+                                    System.out.println("GIFTS IS NOT AN ARRAY LIST");
                                 }
                             } else {
-                                System.out.println("USERS GIFT DOCUMENT IS NULL");
+                                System.out.println("COULD NOT GET GIFTS FROM USERS-GIFTS DOC FOR JIM");
                             }
-
                         } else {
-                            justUpdated = false;
+                            System.out.println("USERS GIFT DOCUMENT IS NULL");
                         }
+
+                    } else {
+                        justUpdated = false;
                     }
                 });
 
@@ -671,7 +665,7 @@ public class MainActivity extends AppCompatActivity implements NoInternetDialogC
     }
 
     private void setupIfTester() {
-        if (Arrays.stream(testers).anyMatch(uid::equals)) {
+        if (Arrays.stream(testerUids).anyMatch(uid::equals)) {
             users = "users-test";
             gifts = "gifts-test";
             users_gifts = "users_gifts-test";
