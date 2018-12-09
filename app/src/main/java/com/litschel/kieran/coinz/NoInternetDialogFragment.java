@@ -8,26 +8,25 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 
+// This fragment is used to inform the user they must be logged in to use the app, but there is
+// no internet to log them in
+
 public class NoInternetDialogFragment extends DialogFragment {
 
+    // The interface we use for callbacks when deploying NoInternetDialogFragment
     public interface NoInternetDialogCallback {
         void tryInternetAgain();
-
         void closeApp();
     }
 
-    // Use this instance of the interface to deliver action events
     NoInternetDialogCallback mListener;
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        // Verify that the host activity implements the callback interface
         try {
-            // Instantiate the NoInternetDialogCallback so we can send events to the host
             mListener = (NoInternetDialogCallback) context;
         } catch (ClassCastException e) {
-            // The activity doesn't implement the interface, throw exception
             throw new ClassCastException("Activity must implement NoInternetDialogCallback");
         }
     }
@@ -36,12 +35,10 @@ public class NoInternetDialogFragment extends DialogFragment {
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        // Use the Builder class for convenient dialog construction
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         builder.setMessage(R.string.no_login_dialog_message)
                 .setPositiveButton(R.string.try_again, (dialog, id) -> mListener.tryInternetAgain())
                 .setNegativeButton(R.string.close_app, (dialog, id) -> mListener.closeApp());
-        // Create the AlertDialog object and return it
         return builder.create();
     }
 }

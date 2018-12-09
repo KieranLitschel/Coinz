@@ -132,7 +132,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                         // Next we check if the user has set their username, as this is displayed on
                         // the gift dialog, if they haven't we ask them too create one
                         if (username.equals("")) {
-                            createUsernameFragment(username);
+                            changeUsernameFragment(username, true);
                         } else {
                             // We setup and display the gift dialog
                             DialogFragment newFragment = new GiftCryptoDialogFragment();
@@ -217,7 +217,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
 
     // This creates the dialog for the user to create a new username or update their old one
 
-    public void createUsernameFragment(String username) {
+    public void changeUsernameFragment(String username, boolean isNewUser) {
         // Recheck internet connection here even though checked in gift FAB as this can be called from
         // GiftCryptoDialogFragment too
         if (getActivity() != null) {
@@ -225,7 +225,7 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
                 if (((MainActivity) getActivity()).isNetworkAvailable()) {
                     DialogFragment newFragment = new ChangeUsernameDialogFragment();
                     Bundle args = new Bundle();
-                    args.putBoolean("isNewUser", true);
+                    args.putBoolean("isNewUser", isNewUser);
                     args.putString("username", username);
                     args.putString("uid", uid);
                     newFragment.setArguments(args);

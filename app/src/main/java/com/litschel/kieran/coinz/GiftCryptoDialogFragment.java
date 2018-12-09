@@ -140,7 +140,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
                 dialog.dismiss();
                 if (getTargetFragment() != null) {
                     if (getTargetFragment().getClass() == BalanceFragment.class) {
-                        ((BalanceFragment) getTargetFragment()).createUsernameFragment(username);
+                        ((BalanceFragment) getTargetFragment()).changeUsernameFragment(username, false);
                     } else {
                         System.out.println("EXPECTED TARGET FRAGMENTS CLASS TO BE BALANCE FRAGMENT BUT IS NOT");
                     }
@@ -290,7 +290,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> Toast.makeText(getActivity(), String.format("Gifted %s %s to %s", giftAmount, selectedCurrency, recipient), Toast.LENGTH_LONG).show());
                 // We assert getActivity is not null here as line above will not make getActivity null
-                if (Objects.requireNonNull(getActivity()).getClass() == MainActivity.class){
+                if (Objects.requireNonNull(getActivity()).getClass() == MainActivity.class) {
                     // We call the coinUpdateExecutor to update the local values
                     MainActivity mainActivity = ((MainActivity) getActivity());
                     HashMap<String, Double> currencyChanges = new HashMap<>();
@@ -305,7 +305,7 @@ public class GiftCryptoDialogFragment extends DialogFragment {
         }).addOnFailureListener(e -> {
             System.out.printf("FAILED TO SEND GIFT WITH EXCEPTION:\n%s\n", e);
             dialog.dismiss();
-            if (getActivity()!=null){
+            if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> Toast.makeText(getActivity(), "Something went wrong when sending the gift, please try again.", Toast.LENGTH_LONG).show());
             } else {
                 System.out.println("ACTIVITY OF EXCHANGE DIALOG FRAGMENT IS NULL WHEN EXPECTED NON-NULL");
