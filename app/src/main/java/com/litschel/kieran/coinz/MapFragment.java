@@ -1,5 +1,6 @@
 package com.litschel.kieran.coinz;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -17,10 +18,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -51,7 +48,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +64,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private PermissionsManager permissionsManager;
     private LocationLayerPlugin locationPlugin;
     private LocationEngine locationEngine;
-    private LocationManager locationManager;
     private MapView mapView;
     private MapboxMap map;
     private ExecutorService mapUpdateExecutor;
@@ -87,11 +82,23 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void onAttach(Context context) {
         super.onAttach(context);
         activity = context;
-        mainActivity = ((MainActivity) getActivity());
-        settings = ((MainActivity) getActivity()).settings;
-        db = ((MainActivity) getActivity()).db;
-        settingsWriteLock = ((MainActivity) getActivity()).settingsWriteLock;
-        users = ((MainActivity) getActivity()).users;
+        if (getActivity() != null) {
+            if (((MainActivity) getActivity()).getClass() == MainActivity.class) {
+                mainActivity = ((MainActivity) getActivity());
+                if (mainActivity.isNetworkAvailable()) {
+                    settings = mainActivity.settings;
+                } else {
+                    mainActivity.runOnUiThread(() -> Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show());
+                }
+            } else {
+                System.out.println("ACTIVITY CLASS WAS EXPECTED TO BE MAIN ACTIVITY BUT ISN'T");
+            }
+        } else {
+            System.out.println("ACTIVITY WAS NULL WHEN EXPECTED NON-NULL");
+        }
+        db = mainActivity.db;
+        settingsWriteLock = mainActivity.settingsWriteLock;
+        users = mainActivity.users;
     }
 
     @Nullable
@@ -109,7 +116,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         Mapbox.getInstance(activity, getString(R.string.mapbox_access_token));
 
-        mapView = (MapView) view.findViewById(R.id.mapView);
+        mapView = view.findViewById(R.id.mapView);
         mapView.onCreate(savedInstanceState);
 
         mapView.getMapAsync(mapboxMap -> {
@@ -126,31 +133,25 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             initialSetup();
         });
 
-        FloatingActionButton zoomOutFAB = (FloatingActionButton) view.findViewById(R.id.zoomOutFAB);
-        zoomOutFAB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                CameraPosition position = new CameraPosition.Builder()
-                        .target(new LatLng(55.944425, -3.188396))
-                        .zoom(15)
-                        .bearing(0)
-                        .tilt(0)
-                        .build();
-                map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
-            }
+        FloatingActionButton zoomOutFAB = view.findViewById(R.id.zoomOutFAB);
+        zoomOutFAB.setOnClickListener(view1 -> {
+            CameraPosition position = new CameraPosition.Builder()
+                    .target(new LatLng(55.944425, -3.188396))
+                    .zoom(15)
+                    .bearing(0)
+                    .tilt(0)
+                    .build();
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
         });
 
-        FloatingActionButton collectCoinFAB = (FloatingActionButton) view.findViewById(R.id.collectCoinFAB);
-        if (users.equals("users-test")){
+        FloatingActionButton collectCoinFAB = view.findViewById(R.id.collectCoinFAB);
+        if (users.equals("users-test")) {
             collectCoinFAB.setVisibility(View.VISIBLE);
             collectCoinFAB.setEnabled(true);
-            collectCoinFAB.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    ArrayList<MarkerOptions> markersToRemove = new ArrayList<>();
-                    markersToRemove.add(markerOpts.get(0));
-                    removeMarkers(markersToRemove);
-                }
+            collectCoinFAB.setOnClickListener(view12 -> {
+                ArrayList<MarkerOptions> markersToRemove = new ArrayList<>();
+                markersToRemove.add(markerOpts.get(0));
+                removeMarkers(markersToRemove);
             });
         } else {
             collectCoinFAB.setVisibility(View.GONE);
@@ -164,12 +165,12 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         setToUpdateAtMidnight();
         if (settings.getString("map", "").equals("")) {
             // If there is no internet we will not be able to contact firebase, so we schedule to run the method when there is internet
-            if (((MainActivity) getActivity()).isNetworkAvailable()) {
+            if (mainActivity.isNetworkAvailable()) {
                 initialMapSetup();
             } else {
                 Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                         .show();
-                ((MainActivity) getActivity()).waitingToInitialMapSetup = true;
+                mainActivity.waitingToInitialMapSetup = true;
             }
         } else {
             System.out.println("ON START WAITING FOR LOCK");
@@ -191,7 +192,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             locationPlugin.setRenderMode(RenderMode.COMPASS);
         } else {
             permissionsManager = new PermissionsManager(this);
-            permissionsManager.requestLocationPermissions(getActivity());
+            permissionsManager.requestLocationPermissions(mainActivity);
         }
     }
 
@@ -207,10 +208,14 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             locationEngine.addLocationEngineListener(this);
         }
 
-        locationManager = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                2000,
-                10, locationListenerGPS);
+        LocationManager locationManager = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager != null){
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                    2000,
+                    10, locationListenerGPS);
+        } else {
+            System.out.println("EXPECTED LOCATION MANAGER TO BE NON-NULL BUT WAS NULL");
+        }
     }
 
     LocationListener locationListenerGPS = new LocationListener() {
@@ -224,7 +229,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                     Marker marker = markerOpt.getMarker();
                     LatLng markerPos = marker.getPosition();
                     if (ThirdPartyMethods.distance(latitude, longitude,
-                            markerPos.getLatitude(), markerPos.getLongitude(), "K") * 1000 <= 25) {
+                            markerPos.getLatitude(), markerPos.getLongitude()) * 1000 <= 25) {
                         markersToRemove.add(markerOpt);
                     }
                 }
@@ -257,18 +262,19 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         // Update coins in a seperate thread so we can use thread locks to prevent concurrent updates
         // to the database and JSONObject
         // Use an executor to avoid having to create new threads which is expensive
-        mapUpdateExecutor.submit(new RemoveMarkersTask(this, markerIds, settingsWriteLock, ((MainActivity) getActivity()), db, ((MainActivity) getActivity()).uid, markersToRemove, settings));
+        mapUpdateExecutor.submit(new RemoveMarkersTask(this, markerIds, settingsWriteLock, mainActivity, db, mainActivity.uid, markersToRemove, settings));
     }
 
+    // Suppressed warning on LocalDateFormat as game is based in Edinburgh, so don't expect
+    // it to be used internationally
+    @SuppressLint("SimpleDateFormat")
     private void setToUpdateAtMidnight() {
-        if (!((MainActivity) getActivity()).tester){
+        if (!mainActivity.tester) {
             TimerTask mTt = new TimerTask() {
                 public void run() {
-                    myTimerTaskHandler.post(new Runnable() {
-                        public void run() {
-                            checkForMapUpdate();
-                            setToUpdateAtMidnight();
-                        }
+                    myTimerTaskHandler.post(() -> {
+                        checkForMapUpdate();
+                        setToUpdateAtMidnight();
                     });
                 }
             };
@@ -284,7 +290,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     public void checkForMapUpdate() {
         if (settings != null) {
             System.out.println("CHECKING IF MAP UPDATE REQUIRED");
-            mapUpdateExecutor.submit(new MapUpdateTask(((MainActivity) getActivity()),this, settingsWriteLock, settings));
+            mapUpdateExecutor.submit(new MapUpdateTask(mainActivity, this, settingsWriteLock, settings));
         }
     }
 
@@ -293,12 +299,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (!settings.getString("map", "").equals("")) {
             markerOpts = new ArrayList<>();
             // This will be called on a thread seperate to the main activity, so we must tell it to run on the UI thread
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    map.clear();
-                }
-            });
+            mainActivity.runOnUiThread(() -> map.clear());
             SharedPreferences.Editor editor = settings.edit();
             editor.putString("map", "");
             editor.apply();
@@ -315,17 +316,12 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
-        if (!((MainActivity) getActivity()).isNetworkAvailable()) {
-            ((MainActivity) getActivity()).waitingToUpdateMap = true;
+        if (!mainActivity.isNetworkAvailable()) {
+            mainActivity.waitingToUpdateMap = true;
             settingsWriteLock.unlockWrite(lockStamp);
             // Similarly to for map.clear, as this changes a UI element we must call it on the UI thread
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
-                            .show();
-                }
-            });
+            mainActivity.runOnUiThread(() -> Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
+                    .show());
         } else {
             new DownloadMapTask(this, settingsWriteLock, lockStamp).execute(url);
         }
@@ -346,7 +342,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (granted) {
             enableLocationPlugin();
         } else {
-            ((MainActivity) getActivity()).finish();
+            mainActivity.finish();
         }
     }
 
@@ -387,39 +383,53 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     public void initialMapSetup() {
-        DocumentReference docRef = db.collection(users).document(((MainActivity) getActivity()).uid);
-        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    if (document.exists()) {
-                        String username = document.getString("username");
-                        String mapJSONString = document.getString("map");
-                        String lastDownloadedDate = document.getString("lastDownloadDate");
-                        double coinsRemainingToday = document.getDouble("coinsRemainingToday");
-                        SharedPreferences.Editor editor = settings.edit();
-                        editor.putString("username", username);
-                        editor.putString("map", mapJSONString);
-                        editor.putString("lastDownloadDate", lastDownloadedDate);
-                        editor.putString("coinsRemainingToday", Double.toString(coinsRemainingToday));
-                        for (String currency : currencies) {
-                            editor.putString(currency, Double.toString(document.getDouble(currency)));
-                        }
-                        editor.apply();
-                        if (!settings.getString("map", "").equals("")) {
-                            System.out.println("ON START WAITING FOR LOCK");
-                            long lockStamp = settingsWriteLock.writeLock();
-                            System.out.println("ON START ACQUIRED LOCK");
-                            updateMarkers(lockStamp);
-                        }
-                        checkForMapUpdate();
+        DocumentReference docRef = db.collection(users).document(mainActivity.uid);
+        docRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot document = task.getResult();
+                if (document.exists()) {
+                    String username = document.getString("username");
+                    String mapJSONString = document.getString("map");
+                    String lastDownloadedDate = document.getString("lastDownloadDate");
+                    Double coinsRemainingTodayUnchecked = document.getDouble("coinsRemainingToday");
+                    double coinsRemainingToday;
+                    if (coinsRemainingTodayUnchecked != null) {
+                        coinsRemainingToday = coinsRemainingTodayUnchecked;
                     } else {
-                        System.out.println("COULDN'T FIND USER IN FIREBASE");
+                        coinsRemainingToday = 0.0;
+                        System.out.println("USERS DOCUMENT DOES NOT CONTAIN FIELD FOR COINSREMAININGTODAY");
                     }
+                    HashMap<String, String> amountOfCurrencies = new HashMap<>();
+                    for (String currency : currencies) {
+                        Double amountOfCurrency = document.getDouble(currency);
+                        if (amountOfCurrency != null) {
+                            amountOfCurrencies.put(currency, Double.toString(amountOfCurrency));
+                        } else {
+                            System.out.println("USERS DOCUMENT DOES NOT CONTAIN FIELD FOR " + currency);
+                            amountOfCurrencies.put(currency, "0");
+                        }
+                    }
+                    SharedPreferences.Editor editor = settings.edit();
+                    editor.putString("username", username);
+                    editor.putString("map", mapJSONString);
+                    editor.putString("lastDownloadDate", lastDownloadedDate);
+                    editor.putString("coinsRemainingToday", Double.toString(coinsRemainingToday));
+                    for (String currency : currencies) {
+                        editor.putString(currency, amountOfCurrencies.get(currency));
+                    }
+                    editor.apply();
+                    if (!settings.getString("map", "").equals("")) {
+                        System.out.println("ON START WAITING FOR LOCK");
+                        long lockStamp = settingsWriteLock.writeLock();
+                        System.out.println("ON START ACQUIRED LOCK");
+                        updateMarkers(lockStamp);
+                    }
+                    checkForMapUpdate();
                 } else {
-                    System.out.printf("GETTING DOCUMENT FAILED WITH EXCEPTION: %s\n", task.getException());
+                    System.out.println("COULDN'T FIND USER IN FIREBASE");
                 }
+            } else {
+                System.out.printf("GETTING DOCUMENT FAILED WITH EXCEPTION: %s\n", task.getException());
             }
         });
     }
@@ -439,29 +449,23 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             coinsRemainingTodayDelta = 0;
         }
         mapData.put("coinsRemainingToday", 25 - coinsRemainingTodayDelta);
-        db.collection(users).document(((MainActivity) getActivity()).uid)
+        db.collection(users).document(mainActivity.uid)
                 .update(mapData)
-                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                    @Override
-                    public void onSuccess(Void aVoid) {
-                        SharedPreferences.Editor editor = settings.edit();
-                        editor.putString("map", mapJSONString);
-                        editor.putString("lastDownloadDate", mainActivity.localDateNow().toString());
-                        editor.putString("coinsRemainingToday", Double.toString(25 - coinsRemainingTodayDelta));
-                        editor.remove("lostConnectionDate");
-                        editor.remove("coinsRemainingTodayDelta");
-                        editor.apply();
-                        System.out.println("UPDATED MAP IN FIREBASE SUCCESSFULLY");
-                        updateMarkers(mapJSONString, lockStamp);
-                    }
+                .addOnSuccessListener(aVoid -> {
+                    SharedPreferences.Editor editor = settings.edit();
+                    editor.putString("map", mapJSONString);
+                    editor.putString("lastDownloadDate", mainActivity.localDateNow().toString());
+                    editor.putString("coinsRemainingToday", Double.toString(25 - coinsRemainingTodayDelta));
+                    editor.remove("lostConnectionDate");
+                    editor.remove("coinsRemainingTodayDelta");
+                    editor.apply();
+                    System.out.println("UPDATED MAP IN FIREBASE SUCCESSFULLY");
+                    updateMarkers(mapJSONString, lockStamp);
                 })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e.getMessage());
-                        settingsWriteLock.unlockWrite(lockStamp);
-                        System.out.println("ON MAP DOWNLOADED RELEASED LOCK");
-                    }
+                .addOnFailureListener(e -> {
+                    System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e.getMessage());
+                    settingsWriteLock.unlockWrite(lockStamp);
+                    System.out.println("ON MAP DOWNLOADED RELEASED LOCK");
                 });
     }
 
@@ -481,14 +485,14 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 for (int i = 0; i < markersJSON.length(); i++) {
                     JSONObject markerJSON = markersJSON.getJSONObject(i);
                     JSONArray pos = markerJSON.getJSONObject("geometry").getJSONArray("coordinates");
-                    Icon icon = ThirdPartyMethods.drawableToIcon(activity, R.drawable.marker_icon,
+                    Icon icon = ThirdPartyMethods.drawableToIcon(activity,
                             Color.parseColor(markerJSON.getJSONObject("properties").getString("marker-color")));
                     String value = markerJSON.getJSONObject("properties").getString("value");
                     String currency = markerJSON.getJSONObject("properties").getString("currency");
                     MarkerOptions markerOption = new MarkerOptions()
                             .position(new LatLng(Double.parseDouble(pos.getString(1)),
                                     Double.parseDouble(pos.getString(0))))
-                            .title(value+" "+currency)
+                            .title(value + " " + currency)
                             .icon(icon);
                     markerIds.put(markerOption, markerJSON.getJSONObject("properties").getString("id"));
                     markerOpts.add(markerOption);
@@ -510,12 +514,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         for (MarkerOptions markerOpt : markerDetails.keySet()) {
             // We use runOnUiThread here as this method is called from outside the UI thread
             Marker marker = markerOpt.getMarker();
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    map.removeMarker(marker);
-                }
-            });
+            mainActivity.runOnUiThread(() -> map.removeMarker(marker));
             markerOpts.remove(markerOpt);
             coinsCollected.add(markerDetails.get(markerOpt));
             System.out.println("Removed marker " + markerIds.get(markerOpt));
@@ -524,13 +523,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (coinsCollected.size() == 1) {
             String currency = coinsCollected.get(0)[0];
             String value = coinsCollected.get(0)[1];
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(activity, "Collected " + value
-                            + " " + currency, Toast.LENGTH_LONG).show();
-                }
-            });
+            mainActivity.runOnUiThread(() -> Toast.makeText(activity, "Collected " + value
+                    + " " + currency, Toast.LENGTH_LONG).show());
         } else {
             StringBuilder messageBuilder = new StringBuilder();
             messageBuilder.append("Collected ");
@@ -554,36 +548,25 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             messageBuilder.append(value);
             messageBuilder.append(" ");
             messageBuilder.append(currency);
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show();
-                }
-            });
+            mainActivity.runOnUiThread(() -> Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show());
         }
         String mapJSONString = mapJSON.toString();
-        if (((MainActivity) getActivity()).isNetworkAvailable()) {
+        if (mainActivity.isNetworkAvailable()) {
             Map<String, Object> mapData = new HashMap<>();
             mapData.put("map", mapJSONString);
-            db.collection(users).document(((MainActivity) getActivity()).uid)
+            db.collection(users).document(mainActivity.uid)
                     .update(mapData)
-                    .addOnSuccessListener(new OnSuccessListener<Void>() {
-                        @Override
-                        public void onSuccess(Void aVoid) {
-                            SharedPreferences.Editor editor = settings.edit();
-                            editor.putString("map", mapJSONString);
-                            editor.apply();
-                            settingsWriteLock.unlockWrite(lockStamp);
-                            System.out.println("ON COINS UPDATED RELEASED LOCK");
-                        }
+                    .addOnSuccessListener(aVoid -> {
+                        SharedPreferences.Editor editor = settings.edit();
+                        editor.putString("map", mapJSONString);
+                        editor.apply();
+                        settingsWriteLock.unlockWrite(lockStamp);
+                        System.out.println("ON COINS UPDATED RELEASED LOCK");
                     })
-                    .addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
-                            settingsWriteLock.unlockWrite(lockStamp);
-                            System.out.println("ON COINS UPDATED RELEASED LOCK");
-                        }
+                    .addOnFailureListener(e -> {
+                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
+                        settingsWriteLock.unlockWrite(lockStamp);
+                        System.out.println("ON COINS UPDATED RELEASED LOCK");
                     });
         } else {
             // If offline we only update the map locally
@@ -623,7 +606,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     @Override
-    public void onSaveInstanceState(Bundle outState) {
+    public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
     }

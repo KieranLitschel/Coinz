@@ -6,7 +6,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.ColorInt;
-import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
@@ -16,15 +15,20 @@ import com.mapbox.mapboxsdk.annotations.IconFactory;
 
 class ThirdPartyMethods {
     // I found this method here https://stackoverflow.com/questions/37805379/mapbox-for-android-changing-color-of-a-markers-icon
-    static Icon drawableToIcon(@NonNull Context context, @DrawableRes int id, @ColorInt int colorRes) {
-        Drawable vectorDrawable = ResourcesCompat.getDrawable(context.getResources(), id, context.getTheme());
-        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
-                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        DrawableCompat.setTint(vectorDrawable, colorRes);
-        vectorDrawable.draw(canvas);
-        return IconFactory.getInstance(context).fromBitmap(bitmap);
+    static Icon drawableToIcon(@NonNull Context context, @ColorInt int colorRes) {
+        Drawable vectorDrawable = ResourcesCompat.getDrawable(context.getResources(), R.drawable.marker_icon, context.getTheme());
+        if (vectorDrawable != null){
+            Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
+                    vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+            DrawableCompat.setTint(vectorDrawable, colorRes);
+            vectorDrawable.draw(canvas);
+            return IconFactory.getInstance(context).fromBitmap(bitmap);
+        } else {
+            System.out.println("VECTOR DRAWABLE EXPECTED NON-NULL BUT WAS NULL, USING DEFAULT MARKER");
+            return IconFactory.getInstance(context).defaultMarker();
+        }
     }
 
     // Found this set of methods for calculating distance between lat and longs here https://www.geodatasource.com/developers/java
@@ -56,17 +60,14 @@ class ThirdPartyMethods {
     /*::                                                                         :*/
     /*::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 
-    public static double distance(double lat1, double lon1, double lat2, double lon2, String unit) {
+    static double distance(double lat1, double lon1, double lat2, double lon2) {
         double theta = lon1 - lon2;
         double dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
         dist = Math.acos(dist);
         dist = rad2deg(dist);
         dist = dist * 60 * 1.1515;
-        if (unit == "K") {
-            dist = dist * 1.609344;
-        } else if (unit == "N") {
-            dist = dist * 0.8684;
-        }
+        // Always return value in KMs
+        dist = dist * 1.609344;
 
         return (dist);
     }
