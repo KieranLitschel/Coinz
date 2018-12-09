@@ -50,6 +50,7 @@
     <string name="you">You</string>
     <string name="top_10">Top 10</string>
     <string name="new_user_username_leaderboard">New users must create a username in order to view the leaderboard.</string>
+    <string name="user_location_permission_explanation">Need permission for fine location for calculating distance to coins, and displaying position on map.</string>
     <string-array name="crypto_array">
         <item>PENY</item>
         <item>DOLR</item>

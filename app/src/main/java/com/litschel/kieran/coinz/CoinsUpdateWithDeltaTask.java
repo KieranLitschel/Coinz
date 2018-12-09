@@ -59,18 +59,22 @@ public class CoinsUpdateWithDeltaTask implements Runnable {
                 }
             }
 
-            // If the date when we last downloaded the coins is today then the map will not have been updated.
+            // If the date when we lost connection is today then the map will not have been updated.
             // This means we need to update the database to reflect the changes in coinsRemainingToday since offline
-            // and the markers removed since offline
 
-            if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())) {
+            if (LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())) {
                 Double coinsRemainingToday = snapshot.getDouble("coinsRemainingToday");
                 if (coinsRemainingToday != null) {
                     newValues.put("coinsRemainingToday", coinsRemainingToday + Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0")));
-                    newValues.put("map", settings.getString("map", ""));
                 } else {
                     throw new FirebaseFirestoreException("USERS VALUE FOR coinsRemainingToday DOES NOT EXIST IN THEIR FIRESTORE DOCUMENT", FirebaseFirestoreException.Code.ABORTED);
                 }
+            }
+
+            // If the map was last downloaded today, then we need to update the map in the database with the removed markers
+
+            if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())){
+                newValues.put("map", settings.getString("map", ""));
             }
 
             transaction.update(docRef, newValues);
@@ -88,13 +92,13 @@ public class CoinsUpdateWithDeltaTask implements Runnable {
                 editor.remove(currency + "Delta");
             }
             // If we had to update coinsRemainingToday in the database then we need to update it locally too
-            if (LocalDate.parse(settings.getString("lastDownloadDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())) {
+            if (LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString())).isEqual(activity.localDateNow())) {
                 editor.putString("coinsRemainingToday", Double.toString(
                         Double.parseDouble(settings.getString("coinsRemainingToday", "0"))
                                 + Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0"))));
-                editor.remove("coinsRemainingTodayDelta");
-                editor.remove("lostConnectionDate");
             }
+            editor.remove("coinsRemainingTodayDelta");
+            editor.remove("lostConnectionDate");
             editor.apply();
             System.out.println("UPDATE COINS WITH DELTA TASK SUCCEEDED");
             context.onCoinsUpdateWithDeltaComplete(lockStamp);

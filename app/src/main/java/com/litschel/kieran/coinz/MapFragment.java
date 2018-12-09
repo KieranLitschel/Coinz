@@ -78,6 +78,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     private String users;
     private HashMap<MarkerOptions, String> markerIds;
 
+    // We use this to get values from MainActivity we'll need later
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
@@ -101,6 +102,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         users = mainActivity.users;
     }
 
+    // Set the fragment to the map
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -112,7 +114,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         justCreated = true;
         super.onViewCreated(view, savedInstanceState);
 
+        // Create the mapUpdateExecutor, we use an executor for the same reason we did for the coinsUpdateExecutor.
+        // We use a seperate executor so that it is destroyed when the MapFragment is, as the callbacks from the threads
+        // interact with the map
+
         mapUpdateExecutor = Executors.newFixedThreadPool(1);
+
+        // Create the map
 
         Mapbox.getInstance(activity, getString(R.string.mapbox_access_token));
 
@@ -121,6 +129,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
 
         mapView.getMapAsync(mapboxMap -> {
             map = mapboxMap;
+            // Fix the bounds of play
             LatLngBounds PLAY_BOUNDS = new LatLngBounds.Builder()
                     .include(new LatLng(55.946233, -3.192473))
                     .include(new LatLng(55.946233, -3.184319))
@@ -133,6 +142,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             initialSetup();
         });
 
+        // Create the FAB to reset the view
         FloatingActionButton zoomOutFAB = view.findViewById(R.id.zoomOutFAB);
         zoomOutFAB.setOnClickListener(view1 -> {
             CameraPosition position = new CameraPosition.Builder()
@@ -144,6 +154,10 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             map.animateCamera(CameraUpdateFactory.newCameraPosition(position), 1000);
         });
 
+        // For testers we add an FAB that collects the first coin in the array of coins, this allows
+        // spoofing collecting coins, with the only difference being the location listener isn't fired
+        // to trigger the response. I do this as I found mapBox was bugging in the emulator, so I could
+        // not guarentee the location listener would produce repeatable tests, so opted to circumvent it
         FloatingActionButton collectCoinFAB = view.findViewById(R.id.collectCoinFAB);
         if (users.equals("users-test")) {
             collectCoinFAB.setVisibility(View.VISIBLE);
@@ -160,19 +174,30 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     }
 
     private void initialSetup() {
+        // We set the map to update at midnight
         myTimer = new Timer();
         myTimerTaskHandler = new Handler();
         setToUpdateAtMidnight();
-        if (settings.getString("map", "").equals("")) {
-            // If there is no internet we will not be able to contact firebase, so we schedule to run the method when there is internet
+        if (settings.getString("lastDownloadDate", "").equals("")) {
+
+            // If the value for lastDownloadDate is an empty string, we haven't downloaded the database from firebase
+            // so we do so
+
             if (mainActivity.isNetworkAvailable()) {
                 initialMapSetup();
             } else {
+
+                // If there is no internet we will not be able to contact firebase, so we schedule to run the method when there is internet
+
                 Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                         .show();
                 mainActivity.waitingToInitialMapSetup = true;
             }
         } else {
+
+            // If it's not empty then we have local stored data, so we load the locally stored markers
+            // onto the map and check for a map update
+
             System.out.println("ON START WAITING FOR LOCK");
             long lockStamp = settingsWriteLock.writeLock();
             System.out.println("ON START ACQUIRED LOCK");
@@ -181,58 +206,26 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
     }
 
-    @SuppressWarnings({"MissingPermission"})
-    private void enableLocationPlugin() {
-        // Check if permissions are enabled and if not request
-        if (PermissionsManager.areLocationPermissionsGranted(activity)) {
-            // Create an instance of LOST location engine
-            initializeLocationEngine();
-
-            locationPlugin = new LocationLayerPlugin(mapView, map, locationEngine);
-            locationPlugin.setRenderMode(RenderMode.COMPASS);
-        } else {
-            permissionsManager = new PermissionsManager(this);
-            permissionsManager.requestLocationPermissions(mainActivity);
-        }
-    }
-
-    @SuppressWarnings({"MissingPermission"})
-    private void initializeLocationEngine() {
-        LocationEngineProvider locationEngineProvider = new LocationEngineProvider(activity);
-        locationEngine = locationEngineProvider.obtainBestLocationEngineAvailable();
-        locationEngine.setPriority(LocationEnginePriority.HIGH_ACCURACY);
-        locationEngine.activate();
-
-        Location lastLocation = locationEngine.getLastLocation();
-        if (lastLocation == null) {
-            locationEngine.addLocationEngineListener(this);
-        }
-
-        LocationManager locationManager = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
-        if (locationManager != null){
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                    2000,
-                    10, locationListenerGPS);
-        } else {
-            System.out.println("EXPECTED LOCATION MANAGER TO BE NON-NULL BUT WAS NULL");
-        }
-    }
-
+    // Setup the location listener so that we can check when the users moves if they are within distance of a coin
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(android.location.Location location) {
             double latitude = location.getLatitude();
             double longitude = location.getLongitude();
+            // We check markerOpts are not null in case the user moves but there is no markers, which
+            // for example can occur when we cleared the map at midnight but the user had no internet
             if (markerOpts != null) {
                 ArrayList<MarkerOptions> markersToRemove = new ArrayList<>();
                 for (MarkerOptions markerOpt : markerOpts) {
                     Marker marker = markerOpt.getMarker();
                     LatLng markerPos = marker.getPosition();
+                    // If the user in a 25m radius of a marker, we mark it for collection (removal)
                     if (ThirdPartyMethods.distance(latitude, longitude,
                             markerPos.getLatitude(), markerPos.getLongitude()) * 1000 <= 25) {
                         markersToRemove.add(markerOpt);
                     }
                 }
+                // If the user is in the radius of at least one marker we begin the process of removing it
                 if (markersToRemove.size() > 0) {
                     removeMarkers(markersToRemove);
                 }
@@ -265,19 +258,25 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         mapUpdateExecutor.submit(new RemoveMarkersTask(this, markerIds, settingsWriteLock, mainActivity, db, mainActivity.uid, markersToRemove, settings));
     }
 
+    // This method updates the map at midnight
+
     // Suppressed warning on LocalDateFormat as game is based in Edinburgh, so don't expect
     // it to be used internationally
     @SuppressLint("SimpleDateFormat")
     private void setToUpdateAtMidnight() {
+        // We disable it for testers, as spoofing the date means it does not behave as expected
         if (!mainActivity.tester) {
             TimerTask mTt = new TimerTask() {
                 public void run() {
                     myTimerTaskHandler.post(() -> {
+                        // At midnight we check for a map update, and set it to update at midnight
+                        // the following day
                         checkForMapUpdate();
                         setToUpdateAtMidnight();
                     });
                 }
             };
+            // Schedule the task to be executed at midnight
             try {
                 myTimer.schedule(mTt, new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
                         .parse(LocalDate.now().plusDays(1).toString() + " 00:00:00"));
@@ -287,15 +286,23 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
     }
 
+    // Checks for a map update via the mapUpdateExecutor
+
     public void checkForMapUpdate() {
         if (settings != null) {
             System.out.println("CHECKING IF MAP UPDATE REQUIRED");
+            // We run map updates on a seperate thread as it will have to modify the settings, so we
+            // will need to acquire the settingsWriteLock to prevent errors from concurrent writes
             mapUpdateExecutor.submit(new MapUpdateTask(mainActivity, this, settingsWriteLock, settings));
         }
     }
 
+    // This is the callback from the mapUpdateTask which updates the map
+
     @Override
     public void updateMap(long lockStamp) {
+        // If the map isn't already empty, we delete it, and ensure the markers are cleared so no markers
+        // from yesterday can be collected before the map updates
         if (!settings.getString("map", "").equals("")) {
             markerOpts = new ArrayList<>();
             // This will be called on a thread seperate to the main activity, so we must tell it to run on the UI thread
@@ -304,6 +311,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             editor.putString("map", "");
             editor.apply();
         }
+        // Use the date today to workout what URL we need to download todays map from
         LocalDate today = mainActivity.localDateNow();
         String year = String.valueOf(today.getYear());
         String month = String.valueOf(today.getMonthValue());
@@ -317,45 +325,16 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
         System.out.println("DOWNLOADING FROM URL: " + url);
         if (!mainActivity.isNetworkAvailable()) {
+            // If the network isn't available we inform the user it'll be downloaded when they connect to the internet,
+            // and set it so when the network connection changes next the map will be updated
             mainActivity.waitingToUpdateMap = true;
             settingsWriteLock.unlockWrite(lockStamp);
             // Similarly to for map.clear, as this changes a UI element we must call it on the UI thread
             mainActivity.runOnUiThread(() -> Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                     .show());
         } else {
+            // If the network is avaialable we start the async task to download the map
             new DownloadMapTask(this, settingsWriteLock, lockStamp).execute(url);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    }
-
-    @Override
-    public void onExplanationNeeded(List<String> permissionsToExplain) {
-
-    }
-
-    @Override
-    public void onPermissionResult(boolean granted) {
-        if (granted) {
-            enableLocationPlugin();
-        } else {
-            mainActivity.finish();
-        }
-    }
-
-    @Override
-    @SuppressWarnings({"MissingPermission"})
-    public void onConnected() {
-        locationEngine.requestLocationUpdates();
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        if (location != null) {
-            locationEngine.removeLocationEngineListener(this);
         }
     }
 
@@ -363,16 +342,17 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
     @SuppressWarnings({"MissingPermission"})
     public void onStart() {
         super.onStart();
+        // Set up navigation as specified in the mapbox navigation tutorial
         if (locationEngine != null) {
             locationEngine.requestLocationUpdates();
         }
         if (locationPlugin != null) {
             locationPlugin.onStart();
         }
+        mapView.onStart();
         if (mapUpdateExecutor.isShutdown()) {
             mapUpdateExecutor = Executors.newFixedThreadPool(1);
         }
-        mapView.onStart();
         // initialSetup is run in onCreateView when the view is created instead of here in order to
         // prevent mapUpdate being called before the map is created
         if (!justCreated) {
@@ -382,14 +362,22 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         }
     }
 
+    // Performs the initial setup of the map including getting values in the database that need
+    // to be stored locally for offline play
     public void initialMapSetup() {
         DocumentReference docRef = db.collection(users).document(mainActivity.uid);
         docRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 DocumentSnapshot document = task.getResult();
                 if (document.exists()) {
+                    // The following code just gets values from the database and then puts them in
+                    // the settings file, whilst also avoiding potentiall null pointer exceptions
                     String username = document.getString("username");
                     String mapJSONString = document.getString("map");
+                    if (mapJSONString == null) {
+                        System.out.println("USERS DOCUMENT DOES NOT CONTAIN FIELD FOR MAP");
+                        mapJSONString = "";
+                    }
                     String lastDownloadedDate = document.getString("lastDownloadDate");
                     Double coinsRemainingTodayUnchecked = document.getDouble("coinsRemainingToday");
                     double coinsRemainingToday;
@@ -418,7 +406,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                         editor.putString(currency, amountOfCurrencies.get(currency));
                     }
                     editor.apply();
-                    if (!settings.getString("map", "").equals("")) {
+                    // If there was a map in the database, show it to the user
+                    if (!mapJSONString.equals("")) {
                         System.out.println("ON START WAITING FOR LOCK");
                         long lockStamp = settingsWriteLock.writeLock();
                         System.out.println("ON START ACQUIRED LOCK");
@@ -434,30 +423,25 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         });
     }
 
+    // This callback is called once the DownloadMapTask completes
 
     @Override
     public void onMapDownloaded(String mapJSONString, long lockStamp) {
         System.out.println("SUCCEEDED IN DOWNLOADING MAP");
+        // Put the new downloaded map in the database
         Map<String, Object> mapData = new HashMap<>();
         mapData.put("lastDownloadDate", mainActivity.localDateNow().toString());
         mapData.put("map", mapJSONString);
-        LocalDate lostConnectionDate = LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString()));
-        double coinsRemainingTodayDelta;
-        if (lostConnectionDate.isEqual(mainActivity.localDateNow())) {
-            coinsRemainingTodayDelta = Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0"));
-        } else {
-            coinsRemainingTodayDelta = 0;
-        }
-        mapData.put("coinsRemainingToday", 25 - coinsRemainingTodayDelta);
+        // It's a new day, so set the coinsRemainingToday to 25
+        mapData.put("coinsRemainingToday", 25);
         db.collection(users).document(mainActivity.uid)
                 .update(mapData)
                 .addOnSuccessListener(aVoid -> {
+                    // Once we've put the map in the database, update local values to reflect the change
                     SharedPreferences.Editor editor = settings.edit();
                     editor.putString("map", mapJSONString);
                     editor.putString("lastDownloadDate", mainActivity.localDateNow().toString());
-                    editor.putString("coinsRemainingToday", Double.toString(25 - coinsRemainingTodayDelta));
-                    editor.remove("lostConnectionDate");
-                    editor.remove("coinsRemainingTodayDelta");
+                    editor.putString("coinsRemainingToday","25");
                     editor.apply();
                     System.out.println("UPDATED MAP IN FIREBASE SUCCESSFULLY");
                     updateMarkers(mapJSONString, lockStamp);
@@ -469,33 +453,52 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
                 });
     }
 
+    // This overload of updateMarkers differs from the other as it is called from within MapFragment,
+    // whereas the other is called in the callback from DownloadMapTask, so we need to acquire a lock
+    // to use it
+
     public void updateMarkers(long lockStamp) {
         String mapJSONString = settings.getString("map", "");
+        // We clear the markers from the map
         map.clear();
         updateMarkers(mapJSONString, lockStamp);
     }
 
+    // Updates the markers in the map, still retain the lock until after it completes to prevent
+    // concurrent writes markerIds and markerOpts, which could cause strange behaviour
+
     public void updateMarkers(String mapJSONString, long lockStamp) {
+        // Clear the markers
         markerOpts = new ArrayList<>();
         markerIds = new HashMap<>();
         if (!mapJSONString.equals("")) {
             try {
+                // Parse the map as a JSON so we can read it simpler
                 JSONObject mapJSON = new JSONObject(mapJSONString);
+                // Read the "features" (markers) as a JSONArray, so we can iterate through it
                 JSONArray markersJSON = mapJSON.getJSONArray("features");
                 for (int i = 0; i < markersJSON.length(); i++) {
                     JSONObject markerJSON = markersJSON.getJSONObject(i);
                     JSONArray pos = markerJSON.getJSONObject("geometry").getJSONArray("coordinates");
+                    // Colour the marker as is specified for it in JSON
                     Icon icon = ThirdPartyMethods.drawableToIcon(activity,
                             Color.parseColor(markerJSON.getJSONObject("properties").getString("marker-color")));
                     String value = markerJSON.getJSONObject("properties").getString("value");
                     String currency = markerJSON.getJSONObject("properties").getString("currency");
+                    // Create the marker option with its position, icon, and the annotation of the markers
+                    // value and currency
                     MarkerOptions markerOption = new MarkerOptions()
                             .position(new LatLng(Double.parseDouble(pos.getString(1)),
                                     Double.parseDouble(pos.getString(0))))
                             .title(value + " " + currency)
                             .icon(icon);
+                    // Store the ID of the marker in a hashmap so that we can query the id of the marker via
+                    // it's markerOpt when we want to remove it
                     markerIds.put(markerOption, markerJSON.getJSONObject("properties").getString("id"));
+                    // Keep a record of the markerOpts so we can identify the markerOpt that corresponds
+                    // to each marker when we want to collect the coins
                     markerOpts.add(markerOption);
+                    // Add the marker to the map
                     map.addMarker(markerOption);
                 }
                 System.out.println("ADDED NEW MARKERS TO MAP");
@@ -508,9 +511,13 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         System.out.println("UPDATE MARKERS RELEASED LOCK");
     }
 
+    // This is the callback for the RemoveMarkersTask
+
     @Override
-    public void onCoinsUpdated(long lockStamp, HashMap<MarkerOptions, String[]> markerDetails, JSONObject mapJSON) {
+    public void onMarkerRemoved(long lockStamp, HashMap<MarkerOptions, String[]> markerDetails, JSONObject mapJSON) {
         ArrayList<String[]> coinsCollected = new ArrayList<>();
+        // We extract from the marker details what markers have been removed, remove them from the map
+        // and collects within the fragment, and keep a record of their details
         for (MarkerOptions markerOpt : markerDetails.keySet()) {
             // We use runOnUiThread here as this method is called from outside the UI thread
             Marker marker = markerOpt.getMarker();
@@ -520,6 +527,8 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             System.out.println("Removed marker " + markerIds.get(markerOpt));
             markerIds.remove(markerOpt);
         }
+        // We display the details of the coins collected via a toast, we use an if statement here to control the
+        // formatting of the message, as when there are more than 1 coin we use "and" and ","
         if (coinsCollected.size() == 1) {
             String currency = coinsCollected.get(0)[0];
             String value = coinsCollected.get(0)[1];
@@ -550,6 +559,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             messageBuilder.append(currency);
             mainActivity.runOnUiThread(() -> Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show());
         }
+        // We update the dataabase to contain the mapJSON with the collected coins removed
         String mapJSONString = mapJSON.toString();
         if (mainActivity.isNetworkAvailable()) {
             Map<String, Object> mapData = new HashMap<>();
@@ -557,6 +567,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             db.collection(users).document(mainActivity.uid)
                     .update(mapData)
                     .addOnSuccessListener(aVoid -> {
+                        // Once we have updated the database we update local values
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString("map", mapJSONString);
                         editor.apply();
@@ -600,6 +611,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             locationPlugin.onStop();
         }
         mapView.onStop();
+        // We cancel and purge the timer, and shuttdown the mapUpdateExecutor on stop to save resources
         myTimer.cancel();
         myTimer.purge();
         mapUpdateExecutor.shutdown();
@@ -625,5 +637,78 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             locationEngine.deactivate();
         }
         mapUpdateExecutor.shutdownNow();
+    }
+
+    // The final methods relate to finding the users location, these are mostly based on the originals
+    // show in the mapbox navigation tutorial https://www.mapbox.com/help/android-navigation-sdk/
+
+    // Set up permissions
+    @SuppressWarnings({"MissingPermission"})
+    private void enableLocationPlugin() {
+        // Check if permissions are enabled and if not request
+        if (PermissionsManager.areLocationPermissionsGranted(activity)) {
+            // Create an instance of LOST location engine
+            initializeLocationEngine();
+
+            locationPlugin = new LocationLayerPlugin(mapView, map, locationEngine);
+            locationPlugin.setRenderMode(RenderMode.COMPASS);
+        } else {
+            permissionsManager = new PermissionsManager(this);
+            permissionsManager.requestLocationPermissions(mainActivity);
+        }
+    }
+
+    @SuppressWarnings({"MissingPermission"})
+    private void initializeLocationEngine() {
+        LocationEngineProvider locationEngineProvider = new LocationEngineProvider(activity);
+        locationEngine = locationEngineProvider.obtainBestLocationEngineAvailable();
+        locationEngine.setPriority(LocationEnginePriority.HIGH_ACCURACY);
+        locationEngine.activate();
+
+        Location lastLocation = locationEngine.getLastLocation();
+        if (lastLocation == null) {
+            locationEngine.addLocationEngineListener(this);
+        }
+
+        LocationManager locationManager = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager != null) {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                    2000,
+                    10, locationListenerGPS);
+        } else {
+            System.out.println("EXPECTED LOCATION MANAGER TO BE NON-NULL BUT WAS NULL");
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    @Override
+    public void onExplanationNeeded(List<String> permissionsToExplain) {
+        Toast.makeText(mainActivity, getString(R.string.user_location_permission_explanation), Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onPermissionResult(boolean granted) {
+        if (granted) {
+            enableLocationPlugin();
+        } else {
+            mainActivity.finish();
+        }
+    }
+
+    @Override
+    @SuppressWarnings({"MissingPermission"})
+    public void onConnected() {
+        locationEngine.requestLocationUpdates();
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        if (location != null) {
+            locationEngine.removeLocationEngineListener(this);
+        }
     }
 }

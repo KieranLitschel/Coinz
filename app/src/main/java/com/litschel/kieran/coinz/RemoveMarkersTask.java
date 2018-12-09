@@ -111,7 +111,7 @@ public class RemoveMarkersTask implements Runnable {
 
                     // Success
                     return null;
-                }).addOnSuccessListener(aVoid -> context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal)).addOnFailureListener(e -> System.out.println("Task failed with exception " + e));
+                }).addOnSuccessListener(aVoid -> context.onMarkerRemoved(lockStamp, markerDetails, mapJSONFinal)).addOnFailureListener(e -> System.out.println("Task failed with exception " + e));
             } else {
                 HashMap<String, Double> newDeltas = new HashMap<>();
                 for (String currency : currencies) {
@@ -130,7 +130,7 @@ public class RemoveMarkersTask implements Runnable {
                 if (!activity.waitingToUpdateCoins) {
                     activity.setToUpdateCoinsOnInternet();
                 }
-                context.onCoinsUpdated(lockStamp, markerDetails, mapJSONFinal);
+                context.onMarkerRemoved(lockStamp, markerDetails, mapJSONFinal);
             }
         } else {
             settingsWriteLock.unlockWrite(lockStamp);
@@ -140,5 +140,5 @@ public class RemoveMarkersTask implements Runnable {
 }
 
 interface RemoveMarkersCallback {
-    void onCoinsUpdated(long lockStamp, HashMap<MarkerOptions, String[]> markerDetails, JSONObject mapJSON);
+    void onMarkerRemoved(long lockStamp, HashMap<MarkerOptions, String[]> markerDetails, JSONObject mapJSON);
 }
