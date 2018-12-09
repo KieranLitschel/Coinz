@@ -86,11 +86,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
         if (getActivity() != null) {
             if (((MainActivity) getActivity()).getClass() == MainActivity.class) {
                 mainActivity = ((MainActivity) getActivity());
-                if (mainActivity.isNetworkAvailable()) {
-                    settings = mainActivity.settings;
-                } else {
-                    mainActivity.runOnUiThread(() -> Toast.makeText(activity, "You require an internet connection to gift coin.", Toast.LENGTH_LONG).show());
-                }
+                settings = mainActivity.settings;
             } else {
                 System.out.println("ACTIVITY CLASS WAS EXPECTED TO BE MAIN ACTIVITY BUT ISN'T");
             }
