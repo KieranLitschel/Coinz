@@ -19,6 +19,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -34,10 +35,6 @@ public class LeaderboardFragment extends Fragment {
     private TextView top10Txt;
     private FloatingActionButton refreshFAB;
     private String users;
-
-    private static int compare(UserNdGold t1, UserNdGold t2) {
-        return Double.compare(t2.getGold(), t1.getGold());
-    }
 
     @Override
     public void onAttach(Context context) {
@@ -150,8 +147,8 @@ public class LeaderboardFragment extends Fragment {
                                                 userNdGolds.add(new UserNdGold(otherUsername, gold));
                                             }
                                         }
-                                        // Sort the list into descending order
-                                        userNdGolds.sort(LeaderboardFragment::compare);
+                                        // Sort the list into descending order by gold values
+                                        userNdGolds.sort(Comparator.comparing(UserNdGold::getGold).reversed());
                                         // Find the users position in the list and their stats
                                         int currUserRank = -1;
                                         UserNdGold currUser = new UserNdGold("", 0);
