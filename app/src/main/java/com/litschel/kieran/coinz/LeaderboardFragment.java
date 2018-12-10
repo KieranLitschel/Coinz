@@ -178,8 +178,9 @@ public class LeaderboardFragment extends Fragment {
                                             golds[i + 1].setText(user.getGoldStr());
                                             rows[i + 5].setVisibility(View.VISIBLE);
                                         }
-                                        // If there's more than 10 users in the database we show the
-                                        // user their place on the database
+                                        // If there's more than 10 users in the database and the user
+                                        // isn't in the top 10 we show the user their place on the
+                                        // database
                                         if (currUserRank > 10) {
                                             userRank.setText(Integer.toString(currUserRank));
                                             names[0].setText(currUser.getUsername());
