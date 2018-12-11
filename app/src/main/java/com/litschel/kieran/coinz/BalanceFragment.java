@@ -203,13 +203,18 @@ public class BalanceFragment extends Fragment implements ExecuteTradeTaskCallbac
     // This is called once the trade has completed and updates all the values so those displayed
     // to the user are up-to date
     @Override
-    public void onTradeComplete(double coinsRemainingToday) {
+    public void onTradeComplete(double coinsRemainingToday, boolean successful) {
         this.coinsRemainingToday = coinsRemainingToday;
         tradeExecuting = false;
         setupValues();
         if (getActivity() != null) {
-            getActivity().runOnUiThread(() -> Toast.makeText(activity, "Trade executed successfully, balances have been updated.", Toast.LENGTH_LONG)
-                    .show());
+            if (successful){
+                getActivity().runOnUiThread(() -> Toast.makeText(activity, "Trade executed successfully, balances have been updated.", Toast.LENGTH_LONG)
+                        .show());
+            } else {
+                getActivity().runOnUiThread(() -> Toast.makeText(activity, "Something went wrong when executing the trade, please try again.", Toast.LENGTH_LONG)
+                        .show());
+            }
         } else {
             System.out.println("EXPECTED ACTIVITY WAS NON-NULL BUT FOUND NULL");
         }

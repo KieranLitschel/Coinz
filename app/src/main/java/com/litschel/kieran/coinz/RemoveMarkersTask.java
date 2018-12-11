@@ -104,6 +104,7 @@ public class RemoveMarkersTask implements Runnable {
         if (markerDetails.size() > 0) {
             final JSONObject mapJSONFinal = mapJSON;
             final DocumentReference docRef = db.collection(users).document(uid);
+            final String newMapJSONString = mapJSONFinal.toString();
             // Use transactions as opposed to just querying the database and then writing it as transactions
             // ensure no writes have occured to the fields since they were read, preventing potential
             // synchronization errors
@@ -122,6 +123,7 @@ public class RemoveMarkersTask implements Runnable {
                         Double value = Double.parseDouble(markerDetails.get(marker)[1]);
                         newValues.put(currency, (double) newValues.get(currency) + value);
                     }
+                    newValues.put("map", newMapJSONString);
                     transaction.update(docRef, newValues);
 
                     // Success
@@ -132,10 +134,14 @@ public class RemoveMarkersTask implements Runnable {
                     for (String currency : currencies) {
                         editor.putString(currency, Double.toString((double) newValues.get(currency)));
                     }
+                    editor.putString("map", newMapJSONString);
                     editor.apply();
                     // Callback to MapFragment to complete removing markers
                     context.onMarkerRemoved(lockStamp, markerDetails, mapJSONFinal);
-                }).addOnFailureListener(e -> System.out.println("Task failed with exception " + e));
+                }).addOnFailureListener(e -> {
+                    System.out.println("Task failed with exception " + e);
+                    settingsWriteLock.unlockWrite(lockStamp);
+                });
             } else {
                 // If we're offline keep track of the deltas
                 HashMap<String, Double> newDeltas = new HashMap<>();
@@ -154,6 +160,7 @@ public class RemoveMarkersTask implements Runnable {
                 for (String currency : currencies) {
                     editor.putString(currency + "Delta", Double.toString(newDeltas.get(currency)));
                 }
+                editor.putString("map", newMapJSONString);
                 editor.apply();
                 // If we're not already waitingToUpdateCoins, mark that we are
                 if (!activity.waitingToUpdateCoins) {

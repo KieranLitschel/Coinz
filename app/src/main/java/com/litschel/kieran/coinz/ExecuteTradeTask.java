@@ -81,11 +81,14 @@ public class ExecuteTradeTask implements Runnable {
                 editor.apply();
                 System.out.println("Succeeded in updating database post trade");
                 settingsWriteLock.unlockWrite(lockStamp);
-                context.onTradeComplete(coinsRemainingToday);
+                context.onTradeComplete(coinsRemainingToday, true);
             }).addOnFailureListener(e -> {
                 System.out.printf("Failed to update database post trade with exception:\n%s\n", e.getMessage());
                 settingsWriteLock.unlockWrite(lockStamp);
-                context.onTradeComplete(coinsRemainingToday);
+                // Restore currency values to previous values
+                currencyValues.put(currency, currencyValues.get(currency) + tradeAmount);
+                currencyValues.put("GOLD", currencyValues.get("GOLD") - tradeAmount * exchangeRate);
+                context.onTradeComplete(coinsRemainingToday, false);
             });
         } else {
             // If there's no internet instead of updating the database we update the deltas, which are the changes in value
@@ -95,27 +98,19 @@ public class ExecuteTradeTask implements Runnable {
                     Double.toString(Double.parseDouble(settings.getString(currency + "Delta", "0")) - tradeAmount));
             editor.putString("GOLDDelta",
                     Double.toString(Double.parseDouble(settings.getString("GOLDDelta", "0")) + tradeAmount * exchangeRate));
-            LocalDate lostConnectionDate = LocalDate.parse(settings.getString("lostConnectionDate", LocalDate.MIN.toString()));
-            // We check that the date hasn't changed since we started to count how many coins the user has exchanged today
-            if (lostConnectionDate.isEqual(activity.localDateNow())) {
-                editor.putString("coinsRemainingTodayDelta",
-                        Double.toString(Double.parseDouble(settings.getString("coinsRemainingTodayDelta", "0")) - tradeAmount));
-            } else {
-                // If the date has changed we restart counting
-                editor.putString("lostConnectionDate", activity.localDateNow().toString());
-                editor.putString("coinsRemainingTodayDelta",
-                        Double.toString(tradeAmount));
-            }
+            editor.putString("lostConnectionDate", activity.localDateNow().toString());
+            editor.putString("coinsRemainingTodayDelta",
+                    Double.toString(tradeAmount));
             editor.apply();
             if (!activity.waitingToUpdateCoins) {
                 activity.setToUpdateCoinsOnInternet();
             }
             settingsWriteLock.unlockWrite(lockStamp);
-            context.onTradeComplete(coinsRemainingToday);
+            context.onTradeComplete(coinsRemainingToday, true);
         }
     }
 }
 
 interface ExecuteTradeTaskCallback {
-    void onTradeComplete(double coinsRemainingToday);
+    void onTradeComplete(double coinsRemainingToday, boolean successful);
 }

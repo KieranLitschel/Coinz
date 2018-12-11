@@ -307,19 +307,6 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             editor.putString("map", "");
             editor.apply();
         }
-        // Use the date today to workout what URL we need to download todays map from
-        LocalDate today = mainActivity.localDateNow();
-        String year = String.valueOf(today.getYear());
-        String month = String.valueOf(today.getMonthValue());
-        if (month.length() == 1) {
-            month = "0" + month;
-        }
-        String day = String.valueOf(today.getDayOfMonth());
-        if (day.length() == 1) {
-            day = "0" + day;
-        }
-        String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
-        System.out.println("DOWNLOADING FROM URL: " + url);
         if (!mainActivity.isNetworkAvailable()) {
             // If the network isn't available we inform the user it'll be downloaded when they connect to the internet,
             // and set it so when the network connection changes next the map will be updated
@@ -329,6 +316,19 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             mainActivity.runOnUiThread(() -> Toast.makeText(activity, "Will update map when there is an internet connection", Toast.LENGTH_LONG)
                     .show());
         } else {
+            // Use the date today to workout what URL we need to download todays map from
+            LocalDate today = mainActivity.localDateNow();
+            String year = String.valueOf(today.getYear());
+            String month = String.valueOf(today.getMonthValue());
+            if (month.length() == 1) {
+                month = "0" + month;
+            }
+            String day = String.valueOf(today.getDayOfMonth());
+            if (day.length() == 1) {
+                day = "0" + day;
+            }
+            String url = String.format("http://homepages.inf.ed.ac.uk/stg/coinz/%s/%s/%s/coinzmap.geojson", year, month, day);
+            System.out.println("DOWNLOADING FROM URL: " + url);
             // If the network is avaialable we start the async task to download the map
             new DownloadMapTask(this, settingsWriteLock, lockStamp).execute(url);
         }
@@ -555,34 +555,7 @@ public class MapFragment extends Fragment implements LocationEngineListener, Per
             messageBuilder.append(currency);
             mainActivity.runOnUiThread(() -> Toast.makeText(activity, messageBuilder.toString(), Toast.LENGTH_LONG).show());
         }
-        // We update the dataabase to contain the mapJSON with the collected coins removed
-        String mapJSONString = mapJSON.toString();
-        if (mainActivity.isNetworkAvailable()) {
-            Map<String, Object> mapData = new HashMap<>();
-            mapData.put("map", mapJSONString);
-            db.collection(users).document(mainActivity.uid)
-                    .update(mapData)
-                    .addOnSuccessListener(aVoid -> {
-                        // Once we have updated the database we update local values
-                        SharedPreferences.Editor editor = settings.edit();
-                        editor.putString("map", mapJSONString);
-                        editor.apply();
-                        settingsWriteLock.unlockWrite(lockStamp);
-                        System.out.println("ON COINS UPDATED RELEASED LOCK");
-                    })
-                    .addOnFailureListener(e -> {
-                        System.out.printf("FAILED TO UPDATE MAP IN FIREBASE WITH EXCEPTION: %s\n", e);
-                        settingsWriteLock.unlockWrite(lockStamp);
-                        System.out.println("ON COINS UPDATED RELEASED LOCK");
-                    });
-        } else {
-            // If offline we only update the map locally
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putString("map", mapJSONString);
-            editor.apply();
-            settingsWriteLock.unlockWrite(lockStamp);
-            System.out.println("ON COINS UPDATED RELEASED LOCK");
-        }
+        settingsWriteLock.unlockWrite(lockStamp);
     }
 
     @Override
